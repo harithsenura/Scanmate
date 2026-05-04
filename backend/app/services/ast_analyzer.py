@@ -108,10 +108,10 @@ RULES = {
     ),
 }
 
-# Regex patterns for quick detection (enhanced for JS/TS support)
+# Regex patterns for quick detection (enhanced for JS/TS/ENV support)
 SECRET_PATTERNS = [
-    r'(?i)((api[_-]?key|password|secret|token|auth[_-]?token|access[_-]?key|private[_-]?key)\s*[:=]\s*[\"\'][^\"\']{5,}[\"\'])',
-    r'(?i)(const|let|var)\s+(api[_-]?key|password|secret|token|auth[_-]?token|access[_-]?key|private[_-]?key)\s*=\s*[\"\'][^\"\']{5,}[\"\']',
+    r'(?i)((api[_-]?key|password|secret|token|auth[_-]?token|access[_-]?key|private[_-]?key)\s*[:=]\s*[\"\']?[^\"\']{5,}[\"\']?)',
+    r'(?i)(const|let|var)\s+(api[_-]?key|password|secret|token|auth[_-]?token|access[_-]?key|private[_-]?key)\s*=\s*[\"\']?[^\"\']{5,}[\"\']?',
 ]
 
 # Patterns that usually indicate a false positive

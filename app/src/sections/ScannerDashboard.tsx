@@ -394,7 +394,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
     return langMap[ext || ''] || 'python';
   }, []);
 
-  const SCANNABLE_EXTENSIONS = ['py', 'js', 'ts', 'tsx', 'jsx', 'java', 'go', 'rs', 'php', 'rb', 'c', 'cpp', 'cs'];
+  const SCANNABLE_EXTENSIONS = ['py', 'js', 'ts', 'tsx', 'jsx', 'java', 'go', 'rs', 'php', 'rb', 'c', 'cpp', 'cs', 'env', 'yml', 'yaml', 'json'];
   const SKIP_DIRS = ['node_modules', '.git', '__pycache__', '.next', 'dist', 'build', '.expo', 'venv', 'env', '.vscode'];
 
   const getAllRepoFiles = useCallback(async (): Promise<{path: string; sha: string}[]> => {
