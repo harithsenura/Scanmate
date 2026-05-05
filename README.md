@@ -2,7 +2,6 @@
 
 Scanmate is a modern, industrial-grade **Static Application Security Testing (SAST)** platform. It combines deep AST-based static analysis with state-of-the-art AI to help developers identify and fix vulnerabilities before they reach production.
 
-![Scanmate Showcase](https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=2070)
 
 ## ✨ Core Features
 
