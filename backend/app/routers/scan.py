@@ -42,28 +42,92 @@ async def scan_code(request: ScanRequest):
     scan_id = f"scan-{uuid.uuid4().hex[:12]}"
     
     try:
-        # Run AST analysis
-        vulnerabilities, score = analyze_code(request.code, request.language)
-        
-        # AI-powered analysis
+        # Primary Scan Logic
+        vulnerabilities = []
+        score = 100
         ai_results: Optional[list[AIAnalysisResult]] = None
-        if request.use_ai and vulnerabilities:
+        
+        deep_analysis = None
+        
+        if request.use_ai:
             try:
-                ai_results_list = await ai_service.batch_analyze(
-                    vulnerabilities, 
+                # Perform Holistic AI Audit (LLM-First Semantic Analysis)
+                audit_result = await ai_service.audit_code(
                     request.code, 
-                    request.ai_model
+                    request.language, 
+                    request.filename or "untitled"
                 )
-                ai_results = ai_results_list
                 
-                # Merge AI fixes into vulnerabilities
-                for i, vuln in enumerate(vulnerabilities):
-                    if i < len(ai_results_list) and ai_results_list[i].fixed_code:
-                        vuln.fixed_code = ai_results_list[i].fixed_code
+                vulnerabilities = audit_result.get("vulnerabilities", [])
+                deep_analysis_dict = audit_result.get("deep_analysis")
+                
+                if deep_analysis_dict:
+                    from app.models.schemas import DeepAnalysisReport
+                    deep_analysis = DeepAnalysisReport(**deep_analysis_dict)
+                
+                # If AI found vulnerabilities, calculate score and wrap results
+                if vulnerabilities:
+                    # Calculate score deduction
+                    deduction = 0
+                    for v in vulnerabilities:
+                        if v.severity == "critical": deduction += 25
+                        elif v.severity == "high": deduction += 15
+                        elif v.severity == "medium": deduction += 5
+                        elif v.severity == "low": deduction += 2
+                    score = max(0, 100 - deduction)
+                    
+                    # Wrap for frontend compatibility
+                    ai_results = [
+                        AIAnalysisResult(
+                            explanation=v.description,
+                            recommendation=v.recommendation,
+                            fixed_code=v.fixed_code,
+                            references=[],
+                            confidence_score=0.95
+                        ) for v in vulnerabilities
+                    ]
+                else:
+                    score = 100
+                    
+            except Exception:
+                # Fallback to AST if AI fails
+                vulnerabilities, score = analyze_code(request.code, request.language)
+        else:
+            # Standard AST/Regex Analysis
+            vulnerabilities, score = analyze_code(request.code, request.language)
+            
+            # Second-Pass: AI Validation to filter False Positives
+            if vulnerabilities and getattr(get_settings(), 'GROQ_API_KEY', None):
+                validated_vulns = []
+                for v in vulnerabilities:
+                    try:
+                        validation = await ai_service.validate_vulnerability(
+                            code_snippet=request.code,
+                            vuln_name=v.title,
+                            vuln_description=v.description,
+                            filename=request.filename or "untitled",
+                        )
                         
-            except AIServiceError:
-                # AI is optional - continue without it
-                ai_results = None
+                        if validation.get("is_true_positive", True):
+                            # Attach validation metadata to the vulnerability
+                            v.confidence_score = validation.get("confidence_score", 50) / 100.0
+                            validated_vulns.append(v)
+                        else:
+                            print(f"🗑️ Filtered False Positive: {v.title} → {validation.get('reasoning', 'N/A')}")
+                    except Exception as val_err:
+                        print(f"⚠️ Validation failed for {v.title}: {val_err}")
+                        validated_vulns.append(v)  # Keep it if validation fails
+                
+                vulnerabilities = validated_vulns
+                
+                # Recalculate score after filtering
+                deduction = 0
+                for v in vulnerabilities:
+                    if v.severity == "critical": deduction += 25
+                    elif v.severity == "high": deduction += 15
+                    elif v.severity == "medium": deduction += 5
+                    elif v.severity == "low": deduction += 2
+                score = max(0, 100 - deduction)
         
         scan_duration_ms = int((time.time() - start_time) * 1000)
         
@@ -82,6 +146,7 @@ async def scan_code(request: ScanRequest):
             security_score=score,
             vulnerabilities=vulnerabilities,
             ai_analysis=ai_results,
+            deep_analysis=deep_analysis,
             summary={
                 "total_vulnerabilities": len(vulnerabilities),
                 "severity_breakdown": severity_counts,

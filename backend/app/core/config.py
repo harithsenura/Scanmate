@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-1.5-flash"
     
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    
     # Scanning
     MAX_FILE_SIZE_BYTES: int = 5 * 1024 * 1024  # 5MB
     MAX_SCAN_DURATION_SECONDS: int = 120

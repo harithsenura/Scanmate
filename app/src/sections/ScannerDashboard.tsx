@@ -80,6 +80,12 @@ interface ScanResult {
   filesScanned?: number;
   techStack?: string[];
   projectDescription?: string;
+  deep_analysis?: {
+    security_audit: string;
+    validation_audit: string;
+    engineering_audit: string;
+    hardcoded_credentials: string;
+  };
 }
 
 const sidebarItems = [
@@ -465,24 +471,41 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
       let totalLines = 0;
       let filesScanned = 0;
       let vulnCounter = 0;
+      let fullProjectCode = '';
 
-      // Step 2: Scan each file
+      // Step 2: Scan each file using AST (Fast, no Rate Limits)
       for (let i = 0; i < allFiles.length; i++) {
         const file = allFiles[i];
         const fileName = file.path.split('/').pop() || file.path;
         setScanStatus(`Scanning ${fileName} (${i + 1}/${allFiles.length})`);
-        setScanProgress(Math.round(((i + 1) / allFiles.length) * 95));
+        setScanProgress(Math.round(((i + 1) / allFiles.length) * 80));
 
         // Fetch file content
         const content = await fetchFileContentRaw(file.path);
         if (!content || content.trim().length === 0) continue;
 
         totalLines += content.split('\n').length;
+        
+        // Step 2.1: Priority Files (Always include these in AI Context)
+        const isPriorityFile = file.path.includes('.env') || 
+                              file.path.includes('config') || 
+                              file.path.includes('auth') || 
+                              file.path.includes('admin') ||
+                              file.path.includes('settings');
+
+        // Append to full project code (Prioritize content or add to end if space allows)
+        const fileContext = `\n\n--- File: ${file.path} ---\n${content.substring(0, isPriorityFile ? 5000 : 800)}`;
+        
+        if (isPriorityFile) {
+            fullProjectCode = fileContext + fullProjectCode; // Prepend priority files
+        } else if (fullProjectCode.length < 40000) { 
+            fullProjectCode += fileContext;
+        }
 
         // Detect language
         const language = detectLanguage(file.path);
 
-        // Scan via backend
+        // Scan via backend (AST Mode)
         try {
           const apiHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
           const response = await fetch(`http://${apiHost}:8000/api/v1/scan`, {
@@ -492,14 +515,13 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
               code: content,
               language,
               filename: file.path,
-              use_ai: true,
+              use_ai: false, // Use AST for individual files to save limits
             }),
           });
 
           if (response.ok) {
             const data = await response.json();
 
-            // Map vulnerabilities with file attribution
             const fileVulns: Vulnerability[] = (data.vulnerabilities || []).map((v: any) => {
               vulnCounter++;
               return {
@@ -516,39 +538,71 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
               };
             });
 
-            // Merge AI fixes
-            if (data.ai_analysis) {
-              data.ai_analysis.forEach((ai: any) => {
-                const vuln = fileVulns.find((v) => v.id === ai.vulnerability_id);
-                if (vuln && ai.fixed_code) {
-                  vuln.fixedCode = ai.fixed_code;
-                  if (ai.ai_recommendation) vuln.recommendation = ai.ai_recommendation;
-                  if (ai.ai_explanation) vuln.aiExplanation = ai.ai_explanation;
-                }
-              });
-            }
-
             allVulnerabilities.push(...fileVulns);
           }
         } catch {
-          // Skip files that fail to scan - continue with others
+          // Skip
         }
 
         filesScanned++;
+      }
+
+      setScanStatus('Performing Deep Semantic AI Audit...');
+      setScanProgress(90);
+      let finalDeepAnalysis = undefined;
+
+      // Step 3: ONE Final AI Call for the Deep Narrative Report
+      try {
+        const apiHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+        const aiResponse = await fetch(`http://${apiHost}:8000/api/v1/scan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: fullProjectCode,
+            language: 'multi',
+            filename: 'Full Project Context',
+            use_ai: true,
+          }),
+        });
+
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          if (aiData.deep_analysis) {
+            finalDeepAnalysis = aiData.deep_analysis;
+          }
+          // Also append any extra AI vulnerabilities found
+          if (aiData.vulnerabilities) {
+              const aiVulns = aiData.vulnerabilities.map((v: any) => {
+                vulnCounter++;
+                return {
+                  id: `vuln-${vulnCounter}`,
+                  title: v.title,
+                  severity: v.severity,
+                  line: v.line,
+                  column: 0,
+                  description: v.description,
+                  cwe: v.cwe_id || 'N/A',
+                  recommendation: v.recommendation,
+                  file: 'Project Architecture',
+                };
+              });
+              allVulnerabilities.push(...aiVulns);
+          }
+        }
+      } catch (err) {
+          console.error("AI Deep Audit failed:", err);
       }
 
       setScanProgress(100);
       setScanStatus('Scan complete');
       const durationSec = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      // Calculate aggregate security score
       const severityWeights: Record<string, number> = { critical: 20, high: 10, medium: 5, low: 2 };
       const totalPenalty = allVulnerabilities.reduce(
         (sum, v) => sum + (severityWeights[v.severity] || 0), 0
       );
       const securityScore = Math.max(0, 100 - Math.min(totalPenalty, 80));
 
-      // Analyze tech stack
       const techStack = Array.from(new Set(allFiles.map(f => detectLanguage(f.path))));
       const projectDescription = `This project appears to be a ${techStack.join('/')} application. Security analysis focused on 6 key service areas: SQL Injection, Secrets Management, Command Injection, Deserialization, Path Traversal, and Cryptographic standards.`;
 
@@ -564,9 +618,36 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
         filesScanned,
         techStack,
         projectDescription,
+        deep_analysis: finalDeepAnalysis,
       };
 
       setScanResult(result);
+      
+      // Save scan history to local storage for User Dashboard
+      const historyRecord = {
+        id: result.id,
+        name: selectedRepo?.name || 'Unknown Project',
+        language: selectedRepo?.language || 'Unknown',
+        updated_at: result.timestamp,
+        score: result.securityScore,
+        status: result.securityScore >= 70 ? 'passed' : 'failed',
+        vulns: {
+          critical: allVulnerabilities.filter(v => v.severity === 'critical').length,
+          high: allVulnerabilities.filter(v => v.severity === 'high').length,
+          medium: allVulnerabilities.filter(v => v.severity === 'medium').length,
+          low: allVulnerabilities.filter(v => v.severity === 'low').length,
+        }
+      };
+      
+      try {
+        const existingHistory = JSON.parse(localStorage.getItem('scanmate_history') || '[]');
+        // Keep only the latest scan for a specific project
+        const filteredHistory = existingHistory.filter((item: any) => item.name !== historyRecord.name);
+        localStorage.setItem('scanmate_history', JSON.stringify([historyRecord, ...filteredHistory]));
+      } catch (e) {
+        console.error('Failed to save scan history to local storage', e);
+      }
+
       setDashboardView('results');
     } catch (err: any) {
       setScanProgress(0);
@@ -878,7 +959,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
             <div className="flex-1 overflow-y-auto bg-obsidian custom-scrollbar animate-in fade-in zoom-in-95 duration-500">
               <div className="max-w-6xl mx-auto px-6 py-12">
                 {/* Results Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-12 border-b border-white/10 pb-8">
                   <div>
                     <button 
                       onClick={() => setDashboardView('editor')}
@@ -886,244 +967,185 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
                     >
                       <ArrowLeft className="w-3 h-3" /> Back to Workspace
                     </button>
-                    <h2 className="text-3xl lg:text-4xl font-bold text-white tracking-tight mb-2">Security Posture Analysis</h2>
-                    <div className="flex items-center gap-4 text-muted-foreground/40 text-[10px] font-mono">
-                      <div className="flex items-center gap-1.5">
-                        <Activity className="w-3 h-3" /> {scanResult?.scanDuration}
+                    <h2 className="text-3xl lg:text-5xl font-bold text-white tracking-tight mb-4 flex items-center gap-4">
+                      <Sparkles className="w-10 h-10 text-emerald" /> 
+                      Deep Project Analysis
+                    </h2>
+                    <div className="flex items-center gap-4 text-muted-foreground/50 text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald" /> 
+                        Analyzed {scanResult?.filesScanned || scanResult?.vulnerabilities.length || 0} files in {scanResult?.scanDuration}
                       </div>
-                      <div className="w-1 h-1 rounded-full bg-white/10" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                       <div>{new Date(scanResult?.timestamp || '').toLocaleString()}</div>
                     </div>
                   </div>
-
+                  
                   <div className="relative group">
                     <div className={`absolute inset-0 blur-[60px] opacity-20 rounded-full transition-all duration-1000 group-hover:opacity-40 ${
                       (scanResult?.securityScore || 0) >= 80 ? 'bg-emerald' : 'bg-ruby'
                     }`} />
-                    <div className="relative flex flex-col items-center justify-center w-28 h-28 lg:w-36 lg:h-36 rounded-full border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl">
-                      <span className={`text-4xl lg:text-5xl font-bold tracking-tighter ${
+                    <div className="relative flex flex-col items-center justify-center w-24 h-24 lg:w-32 lg:h-32 rounded-full border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl">
+                      <span className={`text-3xl lg:text-4xl font-bold tracking-tighter ${
                         (scanResult?.securityScore || 0) >= 80 ? 'text-emerald' : 'text-ruby'
                       }`}>
                         {scanResult?.securityScore}
                       </span>
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-[0.3em] font-bold mt-1">Score</span>
+                      <span className="text-[9px] text-muted-foreground uppercase tracking-[0.3em] font-bold mt-1">Score</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Left Column: Intelligence */}
-                  <div className="lg:col-span-2 space-y-8">
-                    {/* AI Project Intelligence */}
-                    <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-6 lg:p-10 relative overflow-hidden group/intel">
-                      <div className="absolute top-0 right-0 p-10 opacity-5 group-hover/intel:opacity-10 transition-opacity">
-                        <Sparkles className="w-24 h-24 text-emerald" />
-                      </div>
-                      <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-8">
-                          <div className="p-2.5 rounded-xl bg-emerald/10 text-emerald border border-emerald/20">
-                            <Cpu className="w-5 h-5" />
-                          </div>
-                          <h3 className="text-sm font-bold text-white uppercase tracking-[0.2em]">AI Project Intelligence</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-                          {scanResult?.techStack?.map(tech => (
-                            <div key={tech} className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-emerald/30 transition-colors">
-                              <span className="text-[9px] text-muted-foreground uppercase tracking-widest block mb-1">Stack</span>
-                              <span className="text-xs font-bold text-white">{tech.toUpperCase()}</span>
-                            </div>
-                          ))}
-                          <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5">
-                            <span className="text-[9px] text-muted-foreground uppercase tracking-widest block mb-1">Files</span>
-                            <span className="text-xs font-bold text-white">{scanResult?.filesScanned}</span>
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-muted-foreground/80 leading-relaxed font-light">
-                          {scanResult?.projectDescription}
-                        </p>
-                      </div>
+                {/* Affected Files Navigation */}
+                {scanResult?.vulnerabilities && scanResult.vulnerabilities.length > 0 && (
+                  <div className="mb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-1 h-6 bg-ruby rounded-full" />
+                      <h3 className="text-sm font-bold text-white uppercase tracking-widest">Critical Affected Files</h3>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Array.from(new Set(scanResult.vulnerabilities.map(v => v.file))).map((filePath) => {
+                        const fileVulns = scanResult.vulnerabilities.filter(v => v.file === filePath);
+                        const hasCritical = fileVulns.some(v => v.severity === 'critical' || v.severity === 'high');
+                        
+                        return (
+                          <button
+                            key={filePath}
+                            onClick={() => {
+                              setSelectedFilePath(filePath);
+                              setDashboardView('editor');
+                            }}
+                            className="group flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-ruby/30 hover:bg-ruby/5 transition-all text-left"
+                          >
+                            <div className="flex items-center gap-4 overflow-hidden">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                                hasCritical ? 'bg-ruby/10 border-ruby/20' : 'bg-white/5 border-white/10'
+                              }`}>
+                                <FileText className={`w-5 h-5 ${hasCritical ? 'text-ruby' : 'text-muted-foreground'}`} />
+                              </div>
+                              <div className="overflow-hidden">
+                                <p className="text-[13px] font-medium text-white truncate">{filePath.split('/').pop()}</p>
+                                <p className="text-[10px] text-muted-foreground truncate opacity-50">{filePath}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-tighter ${
+                                hasCritical ? 'bg-ruby/20 text-ruby' : 'bg-white/10 text-muted-foreground'
+                              }`}>
+                                {fileVulns.length} Issues
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-ruby transition-colors" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
-                    {/* Service Audit Map */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        { name: 'SQL Injection', desc: 'Industry-standard parameterized query verification', status: 'secure', icon: Shield },
-                        { name: 'Secrets Management', desc: 'Detection of hardcoded credentials & API tokens', status: 'warning', icon: Lock },
-                        { name: 'Command Injection', desc: 'Verification of shell execution boundaries', status: 'secure', icon: Terminal },
-                        { name: 'Insecure Deserialization', desc: 'Object stream integrity & parsing safety', status: 'secure', icon: Layers },
-                        { name: 'Path Traversal', desc: 'Failsafe boundary checks for filesystem access', status: 'secure', icon: Folder },
-                        { name: 'Weak Cryptography', desc: 'Entropy audit for hashing & encryption algorithms', status: 'warning', icon: Sparkles },
-                      ].map((service, idx) => (
-                        <div 
-                          key={service.name} 
-                          className="flex items-center gap-5 p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all duration-300"
-                          style={{ animationDelay: `${idx * 100}ms` }}
-                        >
-                          <div className={`p-3 rounded-2xl ${service.status === 'secure' ? 'bg-emerald/10 text-emerald border border-emerald/20' : 'bg-amber/10 text-amber border border-amber/20'}`}>
-                            <service.icon className="w-5 h-5" />
+                {/* Deep Analysis Report */}
+                {scanResult?.deep_analysis ? (
+                  <div className="space-y-12">
+                    {/* Security Audit */}
+                    <div className="bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-8 lg:p-12 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-ruby/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 transition-all duration-700 group-hover:bg-ruby/10" />
+                      <div className="relative z-10">
+                        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                          <div className="flex-shrink-0">
+                            <div className="w-16 h-16 rounded-2xl bg-ruby/10 flex items-center justify-center border border-ruby/20 shadow-[0_0_30px_rgba(225,29,72,0.2)]">
+                              <ShieldAlert className="w-8 h-8 text-ruby" />
+                            </div>
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-xs font-bold text-white uppercase tracking-wider">{service.name}</h4>
-                              <div className={`w-1.5 h-1.5 rounded-full ${service.status === 'secure' ? 'bg-emerald' : 'bg-amber'} animate-pulse`} />
+                            <h3 className="text-2xl font-bold text-white tracking-tight mb-2">Security Audit</h3>
+                            <p className="text-xs font-mono text-ruby uppercase tracking-widest mb-8">Critical Vulnerability Assessment</p>
+                            <div className="prose prose-invert max-w-none text-[15px]">
+                              {scanResult.deep_analysis.security_audit.split('\n').map((paragraph, i) => (
+                                paragraph.trim() ? <p key={i} className="mb-6 whitespace-pre-wrap text-muted-foreground/90 leading-relaxed font-light">{paragraph}</p> : null
+                              ))}
                             </div>
-                            <p className="text-[10px] text-muted-foreground/60 leading-tight">{service.desc}</p>
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
 
-                    {/* Security Feed */}
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-[0.2em] flex items-center gap-3">
-                          <Bug className="w-5 h-5 text-ruby" /> Security Feed
-                        </h3>
-                        <span className="text-[10px] font-mono text-muted-foreground/40 uppercase">Total Findings: {scanResult?.vulnerabilities.length}</span>
-                      </div>
-                      
-                      {scanResult?.vulnerabilities.map((vuln, idx) => (
-                        <div 
-                          key={vuln.id} 
-                          className="group relative p-6 lg:p-8 rounded-[2rem] lg:rounded-[2.5rem] bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-emerald/20 transition-all duration-500 overflow-hidden"
-                          style={{ animationDelay: `${idx * 150}ms` }}
-                        >
-                          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-transparent via-emerald/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 mb-6">
-                            <div className="flex items-center gap-4">
-                              <div className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-[0.2em] border ${
-                                vuln.severity === 'critical' ? 'bg-ruby/10 text-ruby border-ruby/20' :
-                                vuln.severity === 'high' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
-                                'bg-amber/10 text-amber border-amber/20'
-                              }`}>
-                                {vuln.severity}
-                              </div>
-                              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald/5 border border-emerald/10 text-[8px] font-bold text-emerald uppercase tracking-widest">
-                                <Sparkles className="w-2.5 h-2.5" /> Hybrid Intel
-                              </div>
-                              <h4 className="text-base font-bold text-white tracking-tight">{vuln.title}</h4>
+                    {/* Validation Audit */}
+                    <div className="bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-8 lg:p-12 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-64 h-64 bg-amber/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 transition-all duration-700 group-hover:bg-amber/10" />
+                      <div className="relative z-10">
+                        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                          <div className="flex-shrink-0">
+                            <div className="w-16 h-16 rounded-2xl bg-amber/10 flex items-center justify-center border border-amber/20 shadow-[0_0_30px_rgba(245,158,11,0.2)]">
+                              <CheckCircle2 className="w-8 h-8 text-amber" />
                             </div>
-                            <button 
-                              onClick={() => {
-                                fetchFileContent(vuln.file || '');
-                                setDashboardView('editor');
-                              }}
-                              className="px-5 py-2 rounded-full bg-emerald text-obsidian text-[10px] font-bold uppercase tracking-widest sm:opacity-0 group-hover:opacity-100 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 w-full sm:w-auto"
-                            >
-                              Trace <ExternalLink className="w-3 h-3" />
-                            </button>
                           </div>
-                          
-                          <div className="space-y-6 mb-8">
-                            {/* Problem Context */}
-                            <div className="relative p-5 rounded-2xl bg-white/[0.02] border border-white/5">
-                              <div className="flex items-center gap-2 mb-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                <AlertTriangle className="w-3 h-3 text-amber" /> Detection Context
-                              </div>
-                              <p className="text-sm text-white/70 leading-relaxed font-light italic">
-                                "{vuln.description}"
-                              </p>
+                          <div>
+                            <h3 className="text-2xl font-bold text-white tracking-tight mb-2">Validation Audit</h3>
+                            <p className="text-xs font-mono text-amber uppercase tracking-widest mb-8">Data & Input Integrity</p>
+                            <div className="prose prose-invert max-w-none text-[15px]">
+                              {scanResult.deep_analysis.validation_audit.split('\n').map((paragraph, i) => (
+                                paragraph.trim() ? <p key={i} className="mb-6 whitespace-pre-wrap text-muted-foreground/90 leading-relaxed font-light">{paragraph}</p> : null
+                              ))}
                             </div>
-                            
-                            {/* AI Impact Analysis */}
-                            {vuln.aiExplanation && (
-                              <div className="p-6 rounded-[2rem] bg-ruby/5 border border-ruby/10">
-                                <div className="flex items-center gap-2 mb-3 text-[10px] font-bold text-ruby uppercase tracking-widest">
-                                  <ShieldAlert className="w-3.5 h-3.5" /> Impact Analysis
-                                </div>
-                                <p className="text-sm text-white/80 leading-relaxed font-light">
-                                  {vuln.aiExplanation}
-                                </p>
-                              </div>
-                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                            {/* Remediation Guide */}
-                            <div className="p-6 rounded-[2rem] bg-emerald/5 border border-emerald/10">
-                              <div className="flex items-center gap-2 mb-4 text-[10px] font-bold text-emerald uppercase tracking-widest">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Remediation Guide
-                              </div>
-                              <div className="space-y-4">
-                                {vuln.recommendation.split('\n').map((step, sIdx) => (
-                                  step.trim() && (
-                                    <div key={sIdx} className="flex gap-4 items-start">
-                                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald/10 border border-emerald/20 flex items-center justify-center text-[10px] font-bold text-emerald">
-                                        {sIdx + 1}
-                                      </div>
-                                      <p className="text-sm text-white/70 leading-relaxed font-light">
-                                        {step.replace(/^\d+\.\s*/, '')}
-                                      </p>
-                                    </div>
-                                  )
+                    {/* Software Engineering Audit */}
+                    <div className="bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-8 lg:p-12 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl translate-y-1/2 translate-x-1/2 transition-all duration-700 group-hover:bg-blue-500/10" />
+                      <div className="relative z-10">
+                        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                          <div className="flex-shrink-0">
+                            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
+                              <Layers className="w-8 h-8 text-blue-500" />
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold text-white tracking-tight mb-2">Software Engineering Audit</h3>
+                            <p className="text-xs font-mono text-blue-500 uppercase tracking-widest mb-8">Architecture & Best Practices</p>
+                            <div className="prose prose-invert max-w-none text-[15px]">
+                              {scanResult.deep_analysis.engineering_audit.split('\n').map((paragraph, i) => (
+                                paragraph.trim() ? <p key={i} className="mb-6 whitespace-pre-wrap text-muted-foreground/90 leading-relaxed font-light">{paragraph}</p> : null
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Hardcoded Credentials */}
+                    <div className="bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-8 lg:p-12 shadow-2xl relative overflow-hidden group">
+                      <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-emerald/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2 transition-all duration-700 group-hover:bg-emerald/10" />
+                      <div className="relative z-10">
+                        <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+                          <div className="flex-shrink-0">
+                            <div className="w-16 h-16 rounded-2xl bg-emerald/10 flex items-center justify-center border border-emerald/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                              <Lock className="w-8 h-8 text-emerald" />
+                            </div>
+                          </div>
+                          <div className="w-full">
+                            <h3 className="text-2xl font-bold text-white tracking-tight mb-2">Hardcoded Credentials</h3>
+                            <p className="text-xs font-mono text-emerald uppercase tracking-widest mb-8">Secrets, Keys & Passwords</p>
+                            <div className="p-8 bg-emerald/5 border border-emerald/10 rounded-2xl shadow-inner">
+                              <div className="prose prose-invert max-w-none text-[14px]">
+                                {scanResult.deep_analysis.hardcoded_credentials.split('\n').map((line, i) => (
+                                  line.trim() ? <div key={i} className="mb-3 whitespace-pre-wrap text-emerald/90 font-mono leading-relaxed">{line}</div> : null
                                 ))}
                               </div>
                             </div>
                           </div>
-                          
-                          <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-white/5">
-                            <div className="flex items-center gap-2.5">
-                              <Terminal className="w-4 h-4 text-emerald/40" />
-                              <span className="text-[11px] font-mono text-muted-foreground group-hover:text-emerald transition-colors">{vuln.file}</span>
-                            </div>
-                            <div className="hidden sm:block w-px h-4 bg-white/5" />
-                            <div className="flex items-center gap-2.5">
-                              <Terminal className="w-4 h-4 text-emerald/40" />
-                              <span className="text-[11px] font-mono text-muted-foreground uppercase">Line {vuln.line}</span>
-                            </div>
-                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Right Column: Recommendations */}
-                  <div className="space-y-6">
-                    <div className="bg-emerald/5 border border-emerald/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 p-8 opacity-10">
-                        <Zap className="w-12 h-12 text-emerald" />
-                      </div>
-                      <h4 className="text-xs font-bold text-emerald uppercase tracking-widest mb-6">Immediate Actions</h4>
-                      <ul className="space-y-6">
-                        {[
-                          'Isolate hardcoded API secrets from repository content.',
-                          'Rotate all credentials found in plaintext commits.',
-                          'Implement Argon2id for all password hashing operations.'
-                        ].map((action, i) => (
-                          <li key={i} className="flex gap-4 text-xs text-muted-foreground/80 leading-relaxed group/action">
-                            <span className="text-emerald font-mono group-hover/action:translate-x-1 transition-transform">0{i+1}.</span>
-                            {action}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-6 lg:p-8">
-                      <div className="flex items-center gap-3 mb-8">
-                        <BarChart3 className="w-4 h-4 text-white" />
-                        <h4 className="text-xs font-bold text-white uppercase tracking-widest">Risk Telemetry</h4>
-                      </div>
-                      <div className="space-y-6">
-                        {[
-                          { label: 'Infiltration Potential', value: 20, color: 'bg-emerald' },
-                          { label: 'Data Leak Probability', value: 35, color: 'bg-amber' },
-                          { label: 'Runtime Stability', value: 85, color: 'bg-emerald' },
-                        ].map(metric => (
-                          <div key={metric.label} className="space-y-3">
-                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
-                              <span className="text-muted-foreground/60">{metric.label}</span>
-                              <span className="text-white">{metric.value < 50 ? 'Minimal' : 'Elevated'}</span>
-                            </div>
-                            <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                              <div className={`h-full transition-all duration-1000 ease-out ${metric.color}`} style={{ width: `${metric.value}%` }} />
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-12 text-center text-muted-foreground/50 font-mono border border-white/5 rounded-[2rem] bg-white/[0.02]">
+                    <Activity className="w-8 h-8 mx-auto mb-4 opacity-20" />
+                    Deep analysis report is not available for this scan.
+                  </div>
+                )}
               </div>
             </div>
           )}

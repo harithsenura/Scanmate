@@ -32,7 +32,7 @@ class VulnerabilityType(str, Enum):
 class ScanRequest(BaseModel):
     """Request model for initiating a code scan."""
     code: str = Field(..., min_length=1, max_length=500_000, description="Source code to analyze")
-    language: Literal["python", "javascript", "typescript", "java", "go", "rust", "php"] = Field(
+    language: Literal["python", "javascript", "typescript", "java", "go", "rust", "php", "multi"] = Field(
         default="python", description="Programming language of the code"
     )
     filename: Optional[str] = Field(default="untitled", description="Name of the file being scanned")
@@ -67,6 +67,14 @@ class AIAnalysisResult(BaseModel):
     model_used: str
 
 
+class DeepAnalysisReport(BaseModel):
+    """Full-project narrative analysis report."""
+    security_audit: str
+    validation_audit: str
+    engineering_audit: str
+    hardcoded_credentials: str
+
+
 class ScanResult(BaseModel):
     """Complete scan result response."""
     id: str
@@ -78,6 +86,7 @@ class ScanResult(BaseModel):
     security_score: int = Field(ge=0, le=100)
     vulnerabilities: List[Vulnerability]
     ai_analysis: Optional[List[AIAnalysisResult]] = None
+    deep_analysis: Optional[DeepAnalysisReport] = None
     summary: dict
     status: Literal["completed", "failed", "partial"]
 

@@ -115,7 +115,7 @@ export default function Navigation({ onNavigate, transparent = false, isLoggedIn
                   </div>
                   
                   <button
-                    onClick={() => { onNavigate('scanner'); setDropdownOpen(false); }}
+                    onClick={() => { onNavigate('user-dashboard'); setDropdownOpen(false); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
                   >
                     <LayoutDashboard className="w-4 h-4" />

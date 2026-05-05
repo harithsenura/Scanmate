@@ -1,10 +1,15 @@
 """
-Verstack.lk - AI Analysis Service
-Integrates with OpenAI GPT-4 and Llama-3 to generate vulnerability explanations
-and secure code refactoring suggestions.
+ScanMate - AI Analysis Service
+Enterprise-grade AI security auditing with Semantic Caching, Exponential Backoff,
+Token Trimming, Hybrid Model Strategy, and Multi-Provider Fallback.
 """
 import os
-from typing import List, Optional
+import re
+import hashlib
+import asyncio
+import time
+import json
+from typing import List, Optional, Dict, Any
 import httpx
 from app.core.config import get_settings
 from app.models.schemas import Vulnerability, AIAnalysisResult
@@ -15,8 +20,72 @@ class AIServiceError(Exception):
     pass
 
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Solution 1: SEMANTIC CACHE (In-Memory, Hash-Based)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_semantic_cache: Dict[str, dict] = {}
+_cache_timestamps: Dict[str, float] = {}
+CACHE_TTL_SECONDS = 3600  # 1 hour
+
+
+def _cache_key(code: str, filename: str, mode: str) -> str:
+    """Generate SHA-256 hash key for semantic caching."""
+    content = f"{mode}:{filename}:{code}"
+    return hashlib.sha256(content.encode()).hexdigest()
+
+
+def _get_cached(key: str) -> Optional[dict]:
+    """Retrieve from cache if not expired."""
+    if key in _semantic_cache:
+        if time.time() - _cache_timestamps.get(key, 0) < CACHE_TTL_SECONDS:
+            print(f"⚡ CACHE HIT [{key[:12]}...] — Saved an API call!")
+            return _semantic_cache[key]
+        else:
+            del _semantic_cache[key]
+            del _cache_timestamps[key]
+    return None
+
+
+def _set_cached(key: str, value: dict):
+    """Store result in cache with timestamp."""
+    _semantic_cache[key] = value
+    _cache_timestamps[key] = time.time()
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Solution 4: CODE PRE-PROCESSING & TOKEN TRIMMING
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+def trim_code_tokens(code: str) -> str:
+    """
+    Strip noise from code before sending to AI to reduce token count.
+    Removes: comments, blank lines, non-essential imports.
+    """
+    lines = code.split('\n')
+    trimmed = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip empty lines
+        if not stripped:
+            continue
+        # Skip single-line comments (Python, JS, Java, Go, Rust, PHP)
+        if stripped.startswith('#') and not stripped.startswith('#!'):
+            # Keep .env-style KEY=VALUE lines that start with #
+            if '=' not in stripped:
+                continue
+        if stripped.startswith('//'):
+            continue
+        # Skip block comment markers
+        if stripped.startswith('/*') or stripped.startswith('*') or stripped.startswith('*/'):
+            continue
+        # Skip pure-import lines (keep from...import for context)
+        if re.match(r'^import\s+[\w.]+\s*$', stripped):
+            continue
+        trimmed.append(line)
+    return '\n'.join(trimmed)
+
+
 class AIService:
-    """AI-powered code analysis and fix generation service."""
+    """AI-powered code analysis with enterprise scaling solutions."""
     
     def __init__(self):
         self.settings = get_settings()
@@ -27,6 +96,126 @@ class AIService:
                 self.openai_client = openai.AsyncOpenAI(api_key=self.settings.OPENAI_API_KEY)
             except ImportError:
                 pass
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Solution 5: EXPONENTIAL BACKOFF WITH RETRY
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async def _call_groq(self, messages: list, temperature: float = 0.2, 
+                         json_mode: bool = True, max_retries: int = 3) -> Optional[str]:
+        """Call Groq API with exponential backoff retry logic."""
+        if not getattr(self.settings, 'GROQ_API_KEY', None):
+            return None
+            
+        headers = {
+            "Authorization": f"Bearer {self.settings.GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": getattr(self.settings, 'GROQ_MODEL', "llama-3.3-70b-versatile"),
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+        
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers=headers, json=payload, timeout=90.0
+                    )
+                    
+                    if response.status_code == 200:
+                        return response.json()["choices"][0]["message"]["content"]
+                    
+                    if response.status_code == 429:
+                        wait_time = (2 ** attempt) + 1  # 1s, 3s, 5s
+                        print(f"⏳ Groq 429 — Backoff attempt {attempt+1}/{max_retries}, waiting {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    
+                    if response.status_code == 413:
+                        print(f"📦 Groq 413 — Payload too large, skipping.")
+                        return None
+                    
+                    print(f"⚠️ Groq error {response.status_code}: {response.text[:200]}")
+                    return None
+                    
+            except Exception as e:
+                print(f"⚠️ Groq attempt {attempt+1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+        
+        return None
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Solution 6: MULTI-PROVIDER FALLBACK (Groq → Gemini)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async def _call_gemini(self, system_instruction: str, prompt: str, 
+                           max_retries: int = 2) -> Optional[str]:
+        """Fallback to Gemini API with exponential backoff."""
+        if not getattr(self.settings, 'GEMINI_API_KEY', None):
+            return None
+            
+        model_name = getattr(self.settings, 'GEMINI_MODEL', "gemini-2.0-flash")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.settings.GEMINI_API_KEY}"
+        payload = {
+            "contents": [{"parts": [{"text": f"SYSTEM: {system_instruction}\n\nUSER: {prompt}"}]}],
+            "generationConfig": {"temperature": 0.2, "topK": 1, "topP": 1, "maxOutputTokens": 8192}
+        }
+        
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, json=payload, timeout=90.0)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        return result["candidates"][0]["content"]["parts"][0]["text"]
+                    
+                    if response.status_code == 429:
+                        wait_time = (2 ** attempt) + 1
+                        print(f"⏳ Gemini 429 — Backoff attempt {attempt+1}/{max_retries}, waiting {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    
+                    print(f"⚠️ Gemini error {response.status_code}")
+                    return None
+                    
+            except Exception as e:
+                print(f"⚠️ Gemini attempt {attempt+1} failed: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+        
+        return None
+    
+    async def _call_ai(self, system_instruction: str, prompt: str, 
+                       json_mode: bool = True) -> Optional[str]:
+        """
+        Multi-provider AI call: Groq → Gemini fallback chain.
+        Implements Solution 6 (Multi-Provider Fallback).
+        """
+        # Try Groq first (faster, higher limits)
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ]
+        result = await self._call_groq(messages, json_mode=json_mode)
+        if result:
+            print("✅ AI Response via Groq")
+            return result
+        
+        # Fallback to Gemini
+        print("🔄 Groq unavailable, falling back to Gemini...")
+        result = await self._call_gemini(system_instruction, prompt)
+        if result:
+            print("✅ AI Response via Gemini (fallback)")
+            return result
+        
+        print("❌ All AI providers failed")
+        return None
+
     
     async def analyze_vulnerability(
         self,
@@ -327,3 +516,200 @@ Provide your response as a JSON object with these fields:
                 result = self._rule_based_analysis(vuln, source_code, model or "fallback")
                 results.append(result)
         return results
+
+    async def validate_vulnerability(
+        self,
+        code_snippet: str,
+        vuln_name: str,
+        vuln_description: str,
+        filename: str,
+    ) -> dict:
+        """
+        Second-pass AI validation with Semantic Caching + Token Trimming.
+        Uses the ScanMate Penetration Testing Researcher persona.
+        """
+        # Solution 1: Check Semantic Cache first
+        cache_key = _cache_key(code_snippet, f"{filename}:{vuln_name}", "validate")
+        cached = _get_cached(cache_key)
+        if cached:
+            return cached
+
+        # Solution 4: Token Trimming
+        trimmed_code = trim_code_tokens(code_snippet)[:3000]
+
+        system_prompt = (
+            "### ROLE\n"
+            "You are a Senior Cyber Security Researcher specialized in Penetration Testing "
+            "and Exploitability Analysis. Your mission is to audit automated scanner findings "
+            "for the platform 'ScanMate'.\n\n"
+            "### OBJECTIVE\n"
+            "Filter out 'Noise' (Code quality, formatting, stylistic preferences) and identify "
+            "ONLY 'True Security Vulnerabilities' that pose a direct threat.\n\n"
+            "### EVALUATION CRITERIA\n"
+            "1. EXPLOITABILITY: Can an external attacker or unauthorized user realistically exploit "
+            "this line of code? (If NO, it is a False Positive).\n"
+            "2. IMPACT: Does this lead to Data Leakage, Unauthorized Access, or System Compromise?\n"
+            "3. NOISE REDUCTION: Ignore naming conventions, missing comments, or minor linter warnings. "
+            "These are NOT security threats.\n\n"
+            "### RESPONSE FORMAT (STRICT JSON)\n"
+            "{\n"
+            '  "is_security_threat": boolean,\n'
+            '  "confidence_level": "0-100%",\n'
+            '  "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",\n'
+            '  "technical_verdict": "A sharp, 1-sentence technical explanation.",\n'
+            '  "action_plan": {\n'
+            '     "fix": "Specific code correction.",\n'
+            '     "prevention": "Architectural advice to avoid this in the future."\n'
+            "  }\n"
+            "}"
+        )
+
+        user_prompt = (
+            f"### INPUT DATA\n"
+            f"- File: {filename}\n"
+            f"- Scanner Finding: {vuln_name}\n"
+            f"- Scanner Description: {vuln_description}\n\n"
+            f"### CODE SNIPPET\n```\n{trimmed_code}\n```"
+        )
+
+        try:
+            # Solution 5+6: Call AI with backoff + multi-provider fallback
+            text = await self._call_ai(system_prompt, user_prompt, json_mode=True)
+            
+            if not text:
+                return {"is_true_positive": True, "confidence_score": 50, "status": "Review Required",
+                        "reasoning": "All AI providers unavailable.", "remediation": "Manual review needed."}
+
+            parsed = json.loads(text)
+            
+            confidence_raw = parsed.get("confidence_level", "50%")
+            confidence_int = int(str(confidence_raw).replace("%", "")) if confidence_raw else 50
+            
+            result = {
+                "is_true_positive": parsed.get("is_security_threat", True),
+                "confidence_score": confidence_int,
+                "status": parsed.get("severity", "MEDIUM"),
+                "reasoning": parsed.get("technical_verdict", ""),
+                "remediation": parsed.get("action_plan", {}).get("fix", ""),
+                "prevention": parsed.get("action_plan", {}).get("prevention", ""),
+            }
+            
+            # Solution 1: Cache the result
+            _set_cached(cache_key, result)
+            return result
+
+        except Exception as e:
+            print(f"Vulnerability validation failed: {e}")
+            return {"is_true_positive": True, "confidence_score": 50, "status": "Review Required",
+                    "reasoning": "Validation failed due to an error.", "remediation": "Manual review needed."}
+
+    async def audit_code(
+        self,
+        code: str,
+        language: str,
+        filename: str,
+    ) -> dict:
+        """
+        Perform a holistic semantic security audit with all scaling solutions:
+        - Solution 1: Semantic Caching
+        - Solution 3: Request Batching (full project in one call)
+        - Solution 4: Token Trimming
+        - Solution 5: Exponential Backoff
+        - Solution 6: Multi-Provider Fallback (Groq → Gemini)
+        """
+        # Solution 1: Check Semantic Cache
+        cache_key = _cache_key(code, filename, "audit")
+        cached = _get_cached(cache_key)
+        if cached:
+            return cached
+        
+        # Solution 4: Token Trimming — strip noise before sending to AI
+        trimmed_code = trim_code_tokens(code)
+        
+        system_instruction = (
+            "You are an Elite Senior Software Engineer and Cyber Security Auditor. "
+            f"Analyze the following {language} code for a comprehensive full-project review. "
+            "Your goal is to find REAL, ACTIONABLE vulnerabilities, not generic warnings. "
+            "You must provide a deep, narrative-style report in SIMPLE, CLEAR ENGLISH. "
+            "Your output MUST be a strict JSON object with the following structure:\n"
+            "{\n"
+            '  "deep_analysis": {\n'
+            '    "security_audit": "Narrative of concrete security flaws. DO NOT report the mere usage of a library (like supabase or gsap) as a risk unless you see a specific flaw in how it is used.",\n'
+            '    "validation_audit": "Review of data handling. Only report if you see missing validation for user-controlled inputs.",\n'
+            '    "engineering_audit": "Architecture and code quality review. Be professional and critical like a Senior Engineer.",\n'
+            '    "hardcoded_credentials": "Explicitly identify any real admin credentials, API keys, or tokens found in .env or config files. If none are found, say so."\n'
+            "  },\n"
+            '  "vulnerabilities": [\n'
+            '    { "title": "...", "severity": "critical|high|medium|low", "type": "...", "line": 1, "description": "...", "recommendation": "...", "fixed_code": "...", "cwe_id": "..." }\n'
+            "  ]\n"
+            "}\n"
+            "STRICT AUDIT RULES:\n"
+            "1. DO NOT hallucinate. Only report what you see in the provided code.\n"
+            "2. If you see a .env file with actual values, report them as CRITICAL in 'hardcoded_credentials'.\n"
+            "3. Ignore safe UI patterns, animation libraries (GSAP), and standard variable names.\n"
+            "4. Return ONLY the JSON object. No markdown wrapping block."
+        )
+        
+        prompt = f"File: {filename}\n\nCode:\n{trimmed_code}"
+        
+        try:
+            # Solution 5+6: Call AI with exponential backoff + multi-provider fallback
+            text = await self._call_ai(system_instruction, prompt, json_mode=True)
+            
+            if not text:
+                return {"vulnerabilities": [], "deep_analysis": None}
+            
+            # --- COMMON PARSING LOGIC ---
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+                
+            parsed = json.loads(text)
+            print(f"✅ Audit parsed. Keys: {parsed.keys()}")
+            
+            vulnerabilities = []
+            valid_types = ["sql_injection", "xss", "hardcoded_secret", "insecure_deserialization", 
+                          "path_traversal", "weak_crypto", "debug_mode", "insecure_header", 
+                          "command_injection", "ssrf"]
+            
+            for i, v in enumerate(parsed.get("vulnerabilities", [])):
+                try:
+                    raw_type = v.get("type", "sql_injection").lower().replace(" ", "_")
+                    vuln_type = raw_type if raw_type in valid_types else "sql_injection"
+                    
+                    vulnerabilities.append(Vulnerability(
+                        id=f"ai-vuln-{i}",
+                        title=v.get("title", "Security Vulnerability"),
+                        severity=v.get("severity", "medium").lower() if v.get("severity") in ["critical", "high", "medium", "low"] else "medium",
+                        vulnerability_type=vuln_type,
+                        line=int(v.get("line", 1)),
+                        column=0,
+                        description=v.get("description", ""),
+                        cwe_id=v.get("cwe_id", ""),
+                        cwe_name=v.get("title", ""),
+                        recommendation=v.get("recommendation", ""),
+                        fixed_code=v.get("fixed_code", ""),
+                        confidence_score=0.95,
+                        source_snippet=""
+                    ))
+                except Exception as vuln_e:
+                    print(f"Skipping vuln {i} due to validation error: {vuln_e}")
+                    continue
+                
+            deep_analysis = parsed.get("deep_analysis")
+            result = {
+                "vulnerabilities": vulnerabilities,
+                "deep_analysis": deep_analysis
+            }
+            
+            # Solution 1: Cache the result
+            _set_cached(cache_key, result)
+            return result
+            
+        except Exception as e:
+            import traceback
+            print(f"❌ Audit failed: {e}")
+            traceback.print_exc()
+            return {"vulnerabilities": [], "deep_analysis": None}
+

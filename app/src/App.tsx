@@ -4,10 +4,11 @@ import ScannerDashboard from './sections/ScannerDashboard';
 import Documentation from './sections/Documentation';
 import LoginPage from './sections/LoginPage';
 import RepoSelection from './sections/RepoSelection';
+import UserDashboard from './sections/UserDashboard';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 
-export type AppView = 'landing' | 'scanner' | 'docs' | 'login' | 'repos';
+export type AppView = 'landing' | 'scanner' | 'docs' | 'login' | 'repos' | 'user-dashboard';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>('landing');
@@ -29,7 +30,7 @@ function App() {
       if (session) {
         if (currentView === 'login') setCurrentView('repos');
       } else {
-        if (currentView === 'scanner' || currentView === 'repos') setCurrentView('landing');
+        if (currentView === 'scanner' || currentView === 'repos' || currentView === 'user-dashboard') setCurrentView('landing');
       }
     });
 
@@ -64,6 +65,9 @@ function App() {
         )
       )}
       {currentView === 'docs' && <Documentation onNavigate={setCurrentView} />}
+      {currentView === 'user-dashboard' && session && (
+        <UserDashboard onNavigate={setCurrentView} session={session} />
+      )}
     </div>
   );
 }
