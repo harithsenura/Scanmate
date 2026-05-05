@@ -63,7 +63,7 @@ def create_application() -> FastAPI:
     # Trusted host middleware
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"] if settings.DEBUG else ["scanmate.ai", "*.scanmate.ai"],
+        allowed_hosts=["*"], # Allow all hosts in production to support Render and custom domains
     )
     
     # Include routers
