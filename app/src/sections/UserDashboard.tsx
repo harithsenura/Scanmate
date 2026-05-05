@@ -297,150 +297,171 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
 
       {/* Industrial Report Modal Preview */}
       {showReportModal && selectedProject && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8">
-          <div className="bg-[#1a1a1f] w-full max-w-5xl h-full max-h-[90vh] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-0 md:p-8">
+          <div className="bg-[#1a1a1f] w-full max-w-5xl h-full md:h-auto md:max-h-[90vh] md:rounded-3xl border-t md:border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-5 gap-4 border-b border-white/10 bg-black/40 backdrop-blur-md">
               <div className="flex items-center gap-3">
-                <Shield className="w-6 h-6 text-emerald" />
-                <h2 className="text-lg font-bold">Industrial Security Report Generator</h2>
+                <div className="w-10 h-10 rounded-xl bg-emerald/20 flex items-center justify-center border border-emerald/20">
+                  <Shield className="w-6 h-6 text-emerald" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Security Report</h2>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-mono">Enterprise Audit Engine</p>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button
                   onClick={downloadPDF}
                   disabled={isGeneratingReport}
-                  className="flex items-center gap-2 bg-emerald text-obsidian px-4 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-transform disabled:opacity-50 disabled:hover:scale-100 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald text-obsidian px-5 py-2.5 rounded-xl font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                 >
                   {isGeneratingReport ? (
                     <div className="w-4 h-4 border-2 border-obsidian border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  {isGeneratingReport ? 'Generating PDF...' : 'Download PDF'}
+                  <span className="whitespace-nowrap">{isGeneratingReport ? 'Processing...' : 'Download PDF'}</span>
                 </button>
                 <button 
                   onClick={() => setShowReportModal(false)}
-                  className="p-2 text-muted-foreground hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                  className="p-2.5 text-muted-foreground hover:text-white rounded-xl hover:bg-white/5 transition-colors border border-white/5"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Content - The actual report preview to be printed */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-black/40 relative">
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-0 md:p-8 bg-black/60 relative custom-scrollbar">
               
-              {/* THE REPORT CONTAINER (White background for PDF rendering) */}
+              {/* THE REPORT CONTAINER */}
               <div 
                 ref={reportRef} 
-                className="bg-white text-black max-w-[800px] mx-auto p-12 shadow-xl"
-                style={{ fontFamily: 'Arial, sans-serif' }}
+                className="bg-white text-black w-full max-w-[850px] mx-auto p-6 md:p-16 shadow-2xl md:rounded-sm"
+                style={{ fontFamily: "'Inter', sans-serif" }}
               >
                 {/* Report Header */}
-                <div className="border-b-4 border-emerald pb-6 mb-8 flex justify-between items-end">
+                <div className="border-b-8 border-emerald pb-8 mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                   <div>
-                    <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-2">SECURITY AUDIT REPORT</h1>
-                    <p className="text-gray-500 font-medium">Generated by ScanMate Enterprise Engine</p>
+                    <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tighter mb-2">SECURITY AUDIT</h1>
+                    <p className="text-gray-500 font-bold tracking-widest uppercase text-xs">Generated by ScanMate Intelligence Engine</p>
                   </div>
-                  <div className="text-right">
-                    <Shield className="w-12 h-12 text-emerald ml-auto mb-2" />
-                    <p className="text-sm font-bold text-gray-800">CONFIDENTIAL</p>
+                  <div className="flex items-center gap-4 md:text-right">
+                    <div className="hidden md:block">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Status</p>
+                      <p className="text-sm font-bold text-gray-900">OFFICIAL DOCUMENT</p>
+                    </div>
+                    <Shield className="w-12 h-12 md:w-16 md:h-16 text-emerald" />
                   </div>
                 </div>
 
                 {/* Project Meta */}
-                <div className="grid grid-cols-2 gap-6 mb-10 bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Target Repository</p>
-                    <p className="text-lg font-bold text-gray-900">{selectedProject.name}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8 mb-12 bg-gray-50 p-6 md:p-8 rounded-2xl border border-gray-100">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Target Repository</p>
+                    <p className="text-lg font-bold text-gray-900 break-all">{selectedProject.name}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Primary Language</p>
-                    <p className="text-lg font-bold text-gray-900">{selectedProject.language}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Audit Environment</p>
+                    <p className="text-lg font-bold text-gray-900">{selectedProject.language || 'Multi-stack'}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Audit Date</p>
-                    <p className="text-base font-medium text-gray-800">{new Date(selectedProject.updated_at).toUTCString()}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Scan Timestamp</p>
+                    <p className="text-sm font-bold text-gray-700">{new Date(selectedProject.updated_at).toLocaleString()}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider font-bold mb-1">Auditor</p>
-                    <p className="text-base font-medium text-gray-800">{userName} (ScanMate Automated)</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Certified Auditor</p>
+                    <p className="text-sm font-bold text-gray-700">{userName} (ScanMate-Verified)</p>
                   </div>
                 </div>
 
                 {/* Executive Summary */}
-                <div className="mb-10">
-                  <h2 className="text-2xl font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4">Executive Summary</h2>
-                  <div className="flex gap-8 items-center">
-                    <div>
-                      <p className="text-gray-700 leading-relaxed text-justify">
-                        This automated security assessment was performed using the ScanMate AI-powered static analysis engine. 
-                        The target codebase (<span className="font-semibold">{selectedProject.name}</span>) was evaluated against industry standard vulnerability catalogs including OWASP Top 10 and CWE/SANS Top 25. 
-                        A total of <span className="font-semibold">{(selectedProject.vulns?.critical || 0) + (selectedProject.vulns?.high || 0) + (selectedProject.vulns?.medium || 0) + (selectedProject.vulns?.low || 0)}</span> vulnerabilities were discovered during this scan.
-                      </p>
-                    </div>
-                  </div>
+                <div className="mb-12">
+                  <h2 className="text-xl md:text-2xl font-black text-gray-900 border-b-2 border-gray-100 pb-3 mb-6 flex items-center gap-3">
+                    <span className="w-2 h-8 bg-emerald rounded-full" />
+                    Executive Summary
+                  </h2>
+                  <p className="text-gray-600 leading-relaxed text-sm md:text-base">
+                    This comprehensive security assessment was executed using ScanMate's industrial-grade static analysis engine. 
+                    The codebase <span className="font-bold text-gray-900 underline decoration-emerald/30">{selectedProject.name}</span> was scrutinized against critical vulnerability patterns, including logic flaws, insecure data handling, and secret exposure.
+                  </p>
                 </div>
 
                 {/* Vulnerability Distribution */}
-                <div className="mb-10">
-                  <h2 className="text-2xl font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4">Vulnerability Distribution</h2>
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-center">
-                      <p className="text-3xl font-black text-red-600 mb-1">{selectedProject.vulns?.critical || 0}</p>
-                      <p className="text-xs font-bold text-red-800 uppercase">Critical</p>
+                <div className="mb-12">
+                  <h2 className="text-xl md:text-2xl font-black text-gray-900 border-b-2 border-gray-100 pb-3 mb-6 flex items-center gap-3">
+                    <span className="w-2 h-8 bg-ruby rounded-full" />
+                    Threat Landscape
+                  </h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="bg-red-50/50 border border-red-100 p-4 md:p-6 rounded-2xl text-center">
+                      <p className="text-3xl md:text-4xl font-black text-red-600 mb-1">{selectedProject.vulns?.critical || 0}</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-red-800 uppercase tracking-widest">Critical</p>
                     </div>
-                    <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg text-center">
-                      <p className="text-3xl font-black text-orange-600 mb-1">{selectedProject.vulns?.high || 0}</p>
-                      <p className="text-xs font-bold text-orange-800 uppercase">High</p>
+                    <div className="bg-orange-50/50 border border-orange-100 p-4 md:p-6 rounded-2xl text-center">
+                      <p className="text-3xl md:text-4xl font-black text-orange-600 mb-1">{selectedProject.vulns?.high || 0}</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-orange-800 uppercase tracking-widest">High Risk</p>
                     </div>
-                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center">
-                      <p className="text-3xl font-black text-yellow-600 mb-1">{selectedProject.vulns?.medium || 0}</p>
-                      <p className="text-xs font-bold text-yellow-800 uppercase">Medium</p>
+                    <div className="bg-yellow-50/50 border border-yellow-100 p-4 md:p-6 rounded-2xl text-center">
+                      <p className="text-3xl md:text-4xl font-black text-yellow-600 mb-1">{selectedProject.vulns?.medium || 0}</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-yellow-800 uppercase tracking-widest">Medium</p>
                     </div>
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
-                      <p className="text-3xl font-black text-blue-600 mb-1">{selectedProject.vulns?.low || 0}</p>
-                      <p className="text-xs font-bold text-blue-800 uppercase">Low</p>
+                    <div className="bg-blue-50/50 border border-blue-100 p-4 md:p-6 rounded-2xl text-center">
+                      <p className="text-3xl md:text-4xl font-black text-blue-600 mb-1">{selectedProject.vulns?.low || 0}</p>
+                      <p className="text-[9px] md:text-[10px] font-black text-blue-800 uppercase tracking-widest">Low Risk</p>
                     </div>
                   </div>
                 </div>
 
-                {/* AI Deep Analysis Placeholder */}
-                <div className="mb-10 page-break-inside-avoid">
-                  <h2 className="text-2xl font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4">Senior Auditor Notes</h2>
+                {/* AI Deep Analysis */}
+                <div className="mb-12 page-break-inside-avoid">
+                  <h2 className="text-xl md:text-2xl font-black text-gray-900 border-b-2 border-gray-100 pb-3 mb-6 flex items-center gap-3">
+                    <span className="w-2 h-8 bg-blue-600 rounded-full" />
+                    Deep Analysis Findings
+                  </h2>
                   
                   {selectedProject.deep_analysis ? (
-                    <div className="space-y-6">
-                      <div className="bg-gray-50 border-l-4 border-emerald p-5 rounded-r-lg">
-                        <h4 className="font-bold text-gray-900 mb-2">Security Audit</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.security_audit}</p>
+                    <div className="space-y-6 md:space-y-8">
+                      <div className="bg-gray-50/80 border-l-4 border-emerald p-6 rounded-r-2xl">
+                        <h4 className="font-black text-xs uppercase tracking-widest text-emerald mb-3">01. Security Audit</h4>
+                        <p className="text-gray-700 text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.security_audit}</p>
                       </div>
-                      <div className="bg-gray-50 border-l-4 border-blue-400 p-5 rounded-r-lg">
-                        <h4 className="font-bold text-gray-900 mb-2">Validation & Architecture</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.validation_audit}</p>
-                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap mt-3 border-t border-gray-200 pt-3">{selectedProject.deep_analysis.engineering_audit}</p>
+                      <div className="bg-gray-50/80 border-l-4 border-blue-500 p-6 rounded-r-2xl">
+                        <h4 className="font-black text-xs uppercase tracking-widest text-blue-600 mb-3">02. Validation & Quality</h4>
+                        <p className="text-gray-700 text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap mb-4">{selectedProject.deep_analysis.validation_audit}</p>
+                        <div className="pt-4 border-t border-gray-200">
+                          <h4 className="font-black text-[10px] uppercase tracking-widest text-gray-400 mb-2">Engineering Observations</h4>
+                          <p className="text-gray-700 text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.engineering_audit}</p>
+                        </div>
                       </div>
-                      <div className="bg-gray-50 border-l-4 border-ruby p-5 rounded-r-lg">
-                        <h4 className="font-bold text-gray-900 mb-2">Credentials & Secrets Management</h4>
-                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.hardcoded_credentials}</p>
+                      <div className="bg-gray-50/80 border-l-4 border-red-500 p-6 rounded-r-2xl">
+                        <h4 className="font-black text-xs uppercase tracking-widest text-red-600 mb-3">03. Secrets & Credentials</h4>
+                        <p className="text-gray-700 text-sm md:text-[15px] leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.hardcoded_credentials}</p>
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-gray-50 border-l-4 border-gray-400 p-6 rounded-r-lg">
-                      <p className="text-gray-500 italic text-sm text-center">
-                        Deep analysis report was not generated or not available for this project.
+                    <div className="bg-gray-50 p-12 rounded-2xl border-2 border-dashed border-gray-200 text-center">
+                      <p className="text-gray-400 font-bold italic text-sm">
+                        Semantic Deep Audit was not performed for this session.
                       </p>
                     </div>
                   )}
-                  <p className="text-gray-500 text-xs font-bold text-right mt-4">— ScanMate Advanced Engine</p>
+                  <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between items-center">
+                    <div className="flex gap-1">
+                      {[1, 2, 3].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-emerald/20" />)}
+                    </div>
+                    <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em]">Authorized ScanMate Audit</p>
+                  </div>
                 </div>
                 
                 {/* Footer */}
-                <div className="mt-16 pt-6 border-t border-gray-200 text-center">
-                  <p className="text-xs text-gray-400 font-medium">
-                    This document contains confidential information intended solely for the authorized developers of {selectedProject.name}.
-                    <br />Generated securely by Scanmate AI Infrastructure.
+                <div className="mt-20 pt-10 border-t border-gray-200 text-center">
+                  <p className="text-[10px] text-gray-400 font-bold leading-relaxed max-w-md mx-auto">
+                    This report is generated automatically by ScanMate AI. 
+                    Unauthorized distribution or reproduction is strictly prohibited. 
+                    © {new Date().getFullYear()} ScanMate Security Systems.
                   </p>
                 </div>
               </div>
