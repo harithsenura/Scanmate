@@ -10,6 +10,8 @@ import {
   Shield,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
+  ChevronLeft,
   Play,
   AlertTriangle,
   CheckCircle2,
@@ -20,6 +22,14 @@ import {
   Zap,
   Layers,
   ArrowLeft,
+  Folder,
+  File,
+  Search,
+  Loader2,
+  Github,
+  Cpu,
+  Sparkles,
+  Lock,
 } from 'lucide-react';
 import type { AppView } from '../App';
 import Prism from 'prismjs';
