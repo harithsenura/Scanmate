@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Github, Search, Lock, Shield, ArrowLeft, LogOut, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Github, Search, Lock } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';

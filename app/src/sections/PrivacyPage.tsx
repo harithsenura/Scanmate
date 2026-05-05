@@ -1,5 +1,4 @@
-import React from 'react';
-import { Shield, EyeOff, Lock, Database, Globe, FileText, CheckCircle2 } from 'lucide-react';
+import { Shield, EyeOff, Lock, Database, Globe, CheckCircle2 } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

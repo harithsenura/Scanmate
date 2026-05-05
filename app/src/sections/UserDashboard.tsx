@@ -8,6 +8,7 @@ import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { supabase } from '../lib/supabase';
 
 interface UserDashboardProps {
   onNavigate: (view: AppView) => void;
@@ -24,6 +25,12 @@ interface GithubRepo {
   score?: number;
   status?: 'passed' | 'failed';
   vulns?: { critical: number; high: number; medium: number; low: number };
+  deep_analysis?: {
+    security_audit: string;
+    validation_audit: string;
+    engineering_audit: string;
+    hardcoded_credentials: string;
+  };
 }
 
 export default function UserDashboard({ onNavigate, session }: UserDashboardProps) {
@@ -94,7 +101,7 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
     return 'bg-ruby';
   };
 
-  const handleGenerateReport = (project: typeof MOCK_PROJECTS[0]) => {
+  const handleGenerateReport = (project: GithubRepo) => {
     setSelectedProject(project);
     setShowReportModal(true);
   };

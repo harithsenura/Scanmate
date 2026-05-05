@@ -1,4 +1,3 @@
-import React from 'react';
 import { Shield, Lock, Eye, Server, Cpu, CheckCircle2, AlertTriangle, FileCheck } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';

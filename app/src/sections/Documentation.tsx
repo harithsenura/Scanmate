@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Book, ShieldAlert, FileCode, Terminal, Activity, ArrowRight, CheckCircle2, ChevronRight, LayoutDashboard, ScanLine, Cpu, Zap, Check, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { Book, ShieldAlert, FileCode, Terminal, Activity, ArrowRight, CheckCircle2, ChevronRight, ScanLine, Cpu, Zap, Check, Shield } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

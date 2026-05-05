@@ -1,13 +1,11 @@
-import React from 'react';
-import { Shield, Github, ArrowLeft } from 'lucide-react';
+import { Shield, Github } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { AppView } from '../App';
 
 interface LoginPageProps {
-  onNavigate: (view: AppView) => void;
+  onNavigate: (view: any) => void;
 }
 
-export default function LoginPage({ onNavigate }: LoginPageProps) {
+export default function LoginPage({ onNavigate: _onNavigate }: LoginPageProps) {
   const handleGitHubLogin = async () => {
     // Dynamically get the current origin (Localhost or IP)
     const redirectTo = window.location.origin;

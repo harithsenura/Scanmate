@@ -1,5 +1,4 @@
-import React from 'react';
-import { FileText, Scale, AlertCircle, Gavel, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Scale, AlertCircle, Gavel, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

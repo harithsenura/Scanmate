@@ -1,5 +1,4 @@
-import React from 'react';
-import { Shield, Users, Target, Rocket, Heart, Zap, Award } from 'lucide-react';
+import { Shield, Users, Target, Zap } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

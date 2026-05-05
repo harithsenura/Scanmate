@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Copy, Check, Shield, Zap, Code2, Globe, Lock } from 'lucide-react';
+import { Copy, Check, Zap, Code2, Globe, Lock } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

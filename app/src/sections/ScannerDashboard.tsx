@@ -16,30 +16,10 @@ import {
   XCircle,
   Info,
   LogOut,
-  Bug,
-  Lock,
-  Code2,
-  Cpu,
-  Sparkles,
-  Copy,
-  Check,
-  Download,
-  Trash2,
-  Search,
-  Filter,
-  Github,
-  Folder,
-  File,
-  ChevronDown,
-  ChevronLeft,
-  Loader2,
-  Terminal,
   Activity,
   Zap,
-  BarChart3,
   Layers,
   ArrowLeft,
-  ExternalLink,
 } from 'lucide-react';
 import type { AppView } from '../App';
 import Prism from 'prismjs';
@@ -88,74 +68,11 @@ interface ScanResult {
   };
 }
 
-const sidebarItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'scanner', label: 'Scanner', icon: ScanLine },
-  { id: 'reports', label: 'Reports', icon: FileText },
-  { id: 'history', label: 'History', icon: History },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
+
 
 const BACKEND_URL = 'https://scanmate-jqy1.onrender.com';
 
-const sampleVulnerabilities: Vulnerability[] = [
-  {
-    id: 'vuln-1',
-    title: 'SQL Injection via String Concatenation',
-    severity: 'critical',
-    line: 12,
-    column: 4,
-    description: 'User-supplied input is directly concatenated into a SQL query string, allowing attackers to manipulate the query structure and access unauthorized data.',
-    cwe: 'CWE-89',
-    recommendation: 'Use parameterized queries or prepared statements to separate code from data.',
-    fixedCode: `query = "SELECT * FROM users WHERE id = ?"
-cursor.execute(query, (user_id,))`,
-  },
-  {
-    id: 'vuln-2',
-    title: 'Hardcoded API Key',
-    severity: 'high',
-    line: 5,
-    column: 11,
-    description: 'A sensitive API key is hardcoded in the source file. This key could be exposed through version control or code sharing.',
-    cwe: 'CWE-798',
-    recommendation: 'Store secrets in environment variables or use a secrets management service.',
-    fixedCode: `API_KEY = os.environ.get('API_KEY')`,
-  },
-  {
-    id: 'vuln-3',
-    title: 'Insecure Deserialization',
-    severity: 'high',
-    line: 24,
-    column: 8,
-    description: 'Use of pickle.loads() on untrusted data can lead to arbitrary code execution.',
-    cwe: 'CWE-502',
-    recommendation: 'Use json.loads() for untrusted data, or implement signed serialization.',
-    fixedCode: `data = json.loads(request.data)`,
-  },
-  {
-    id: 'vuln-4',
-    title: 'Weak Cryptographic Hash',
-    severity: 'medium',
-    line: 31,
-    column: 12,
-    description: 'MD5 is cryptographically broken and should not be used for security-sensitive operations.',
-    cwe: 'CWE-327',
-    recommendation: 'Use SHA-256 or bcrypt for password hashing.',
-    fixedCode: `hash = hashlib.sha256(password.encode()).hexdigest()`,
-  },
-  {
-    id: 'vuln-5',
-    title: 'Debug Mode Enabled',
-    severity: 'low',
-    line: 2,
-    column: 0,
-    description: 'Flask debug mode exposes the Werkzeug debugger which allows remote code execution.',
-    cwe: 'CWE-489',
-    recommendation: 'Never enable debug mode in production environments.',
-    fixedCode: `app.run(debug=False)`,
-  },
-];
+
 
 const defaultCode = `import sqlite3
 import pickle
@@ -211,9 +128,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
-  const [copiedFix, setCopiedFix] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
-  const [scanError, setScanError] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<string>('');
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -224,6 +139,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
   const [showEngineModal, setShowEngineModal] = useState(false);
   const [engineSelection, setEngineSelection] = useState<'default' | 'private'>('default');
   const [historyCount, setHistoryCount] = useState(0);
+  const [analysisWidth, setAnalysisWidth] = useState(400);
 
   // Check history count for Free Plan limits
   useEffect(() => {
@@ -1089,7 +1005,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
                           <button
                             key={filePath}
                             onClick={() => {
-                              setSelectedFilePath(filePath);
+                              setSelectedFilePath(filePath || null);
                               setDashboardView('editor');
                             }}
                             className="group flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-ruby/30 hover:bg-ruby/5 transition-all text-left"
@@ -1101,8 +1017,8 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
                                 <FileText className={`w-5 h-5 ${hasCritical ? 'text-ruby' : 'text-muted-foreground'}`} />
                               </div>
                               <div className="overflow-hidden">
-                                <p className="text-[13px] font-medium text-white truncate">{filePath.split('/').pop()}</p>
-                                <p className="text-[10px] text-muted-foreground truncate opacity-50">{filePath}</p>
+                                <p className="text-[13px] font-medium text-white truncate">{(filePath || '').split('/').pop()}</p>
+                                <p className="text-[10px] text-muted-foreground truncate opacity-50">{filePath || ''}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">

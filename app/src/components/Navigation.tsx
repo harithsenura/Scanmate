@@ -1,4 +1,4 @@
-import { Shield, Menu, X, User, LogOut, Settings, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Shield, User, LogOut, Settings, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { AppView } from '../App';
@@ -10,15 +10,9 @@ interface NavigationProps {
   user?: any;
 }
 
-const navLinks = [
-  { label: 'Features', href: '#features' },
-  { label: 'Use Cases', href: '#use-cases' },
-  { label: 'Security', href: '#security' },
-  { label: 'Docs', href: '#docs' },
-];
+
 
 export default function Navigation({ onNavigate, transparent = false, isLoggedIn = false, user = null }: NavigationProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,13 +32,7 @@ export default function Navigation({ onNavigate, transparent = false, isLoggedIn
     setDropdownOpen(false);
   };
 
-  const handleScroll = (href: string) => {
-    const el = document.querySelector(href);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-    setMobileOpen(false);
-  };
+
 
   return (
     <nav

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Settings, Key, AlertTriangle, CheckCircle2, Shield, 
   Cpu, Database, Activity, Save, Trash2, Eye, EyeOff, Info 
@@ -22,7 +22,7 @@ export default function SettingsPage({ onNavigate, session }: SettingsPageProps)
   const [showGemini, setShowGemini] = useState(false);
   
   const [isSaved, setIsSaved] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [globalStatus, setGlobalStatus] = useState<'healthy' | 'warning' | 'exhausted'>('warning');
 
   useEffect(() => {

@@ -1,5 +1,4 @@
-import React from 'react';
-import { HelpCircle, Mail, MessageSquare, BookOpen, Github, ArrowRight, ShieldCheck, LifeBuoy } from 'lucide-react';
+import { HelpCircle, Mail, MessageSquare, BookOpen, ArrowRight, LifeBuoy } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Zap, Lock, Code2, FileSearch, ChevronRight, Github, Twitter, Linkedin, Shield, Search, Database, Fingerprint, FolderLock, Globe, PackageSearch, X, FileCode2, BookOpen, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Zap, Lock, ChevronRight, Github, Twitter, Linkedin, Shield, Search, Database, Fingerprint, FolderLock, Globe, PackageSearch, X, BookOpen, ShieldCheck } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
-import RollingCubeGallery from '../components/RollingCubeGallery';
+
 
 interface LandingPageProps {
   onNavigate: (view: AppView) => void;
@@ -127,7 +127,7 @@ def get_user():
     
     return cursor.fetchall()`;
 
-const fixedCode = `import sqlite3
+const _fixedCode = `import sqlite3
 from flask import request
 
 def get_user():
@@ -146,7 +146,7 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
   const featuresRef = useRef<HTMLElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const [selectedCase, setSelectedCase] = useState<typeof useCases[0] | null>(null);
-  const [activeEditorTab, setActiveEditorTab] = useState<'code' | 'results'>('code');
+  const [activeEditorTab, _setActiveEditorTab] = useState<'code' | 'results'>('code');
 
   useEffect(() => {
     const ctx = gsap.context(() => {
