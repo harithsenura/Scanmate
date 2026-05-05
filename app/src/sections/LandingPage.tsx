@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Zap, Lock, Code2, FileSearch, ChevronRight, Github, Twitter, Linkedin, Shield, Search, Database, Fingerprint, FolderLock, Globe, PackageSearch, X, FileCode2, BookOpen } from 'lucide-react';
+import { ArrowRight, Zap, Lock, Code2, FileSearch, ChevronRight, Github, Twitter, Linkedin, Shield, Search, Database, Fingerprint, FolderLock, Globe, PackageSearch, X, FileCode2, BookOpen, ShieldCheck } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -392,7 +392,7 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
           <div className="mt-20 py-10 border-t border-white/5">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.3em] mb-10">Trusted by modern engineering teams</p>
             <div className="flex flex-wrap justify-center items-center gap-10 md:gap-20 opacity-30 grayscale hover:grayscale-0 transition-all">
-              {['LOGOIPSUM', 'LOGOIPSUM', 'LOGOIPSUM', 'LOGOIPSUM'].map((logo, i) => (
+              {['GITHUB', 'VERCEL', 'DOCKER', 'SUPABASE'].map((logo, i) => (
                 <span key={i} className="text-xl font-bold tracking-tighter text-white italic">{logo}</span>
               ))}
             </div>
@@ -579,7 +579,7 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
               Security scenarios, covered.
             </h2>
             <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto px-4 md:px-0">
-              From injection attacks to insecure dependencies, Verstack detects
+              From injection attacks to insecure dependencies, Scanmate detects
               the full spectrum of application security vulnerabilities.
             </p>
           </div>
@@ -671,30 +671,7 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <h4 className="text-xs font-mono text-emerald uppercase tracking-widest mb-3">Technical ID</h4>
-                      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                        <span className="text-sm font-mono text-white">{selectedCase.cwe}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-mono text-emerald uppercase tracking-widest mb-3">Potential Impact</h4>
-                      <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {selectedCase.impact}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => { setSelectedCase(null); onNavigate('scanner'); }}
-                    className="w-full bg-white text-obsidian font-bold py-4 rounded-2xl hover:scale-[1.02] transition-transform shadow-xl flex items-center justify-center gap-2 group"
-                  >
-                    Test Your Code Now
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  {/* Sections removed as requested */}
                 </div>
               </div>
             </div>
@@ -760,7 +737,13 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
                 </ul>
 
                 <button
-                  onClick={() => onNavigate(plan.name === 'Ultra' ? 'docs' : 'login')}
+                  onClick={() => {
+                    if (plan.name === 'Pro' || plan.name === 'Ultra') {
+                      alert('This plan is currently under development. Stay tuned for the official launch!');
+                    } else {
+                      onNavigate('login');
+                    }
+                  }}
                   className={`w-full py-4 rounded-2xl font-bold transition-all duration-300 ${
                     plan.popular
                       ? 'bg-emerald text-obsidian hover:bg-emerald-400 hover:scale-[1.02] shadow-xl'
@@ -774,16 +757,52 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
           </div>
         </div>
       </section>
+      {/* ===== NEWSLETTER SECTION ===== */}
+      <section className="py-24 relative overflow-hidden border-t border-white/5">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="flex flex-col items-center text-center">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 tracking-tight text-white">Stay ahead of threats.</h2>
+            <p className="text-lg text-muted-foreground mb-10 max-w-xl font-light">
+              Get weekly security insights and AI-powered patch updates delivered to your inbox.
+            </p>
+            
+            <form className="w-full max-w-md relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-emerald/50 to-emerald/20 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-2xl p-1.5 focus-within:border-emerald/50 transition-colors">
+                <input 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  className="w-full bg-transparent border-none px-4 py-3 text-white outline-none placeholder:text-muted-foreground text-sm"
+                />
+                <button 
+                  type="submit"
+                  onClick={(e) => { e.preventDefault(); alert('Subscribed successfully!'); }}
+                  className="bg-emerald text-obsidian px-6 py-3 rounded-xl font-bold hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] text-sm"
+                >
+                  Subscribe
+                </button>
+              </div>
+            </form>
+            
+            <p className="mt-8 text-[11px] text-muted-foreground flex items-center gap-2 uppercase tracking-widest font-medium">
+              <ShieldCheck className="w-4 h-4 text-emerald" /> Join 10,000+ developers securing their code
+            </p>
+          </div>
+        </div>
+        
+        {/* Background Decorative Elements */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald/5 rounded-full blur-[120px] pointer-events-none"></div>
+      </section>
 
       {/* ===== FOOTER ===== */}
       <footer className="bg-obsidian border-t border-white/5 pt-20 pb-10">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-10 md:gap-8 mb-16">
-            <div className="sm:col-span-2 md:col-span-2">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-10 md:gap-8 mb-16">
+            <div className="col-span-2 md:col-span-2">
               <div className="flex items-center gap-2.5 mb-6">
                 <Shield className="w-6 h-6 text-emerald drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                 <span className="text-xl font-semibold tracking-tight text-white">
-                  verstack<span className="text-emerald">.lk</span>
+                  Scanmate<span className="text-emerald"></span>
                 </span>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed max-w-xs font-light">
@@ -799,11 +818,11 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
             <div>
               <h4 className="text-xs font-semibold text-white mb-6 uppercase tracking-wider">Product</h4>
               <ul className="space-y-4">
-                {['Scanner', 'AI Fixes', 'Reports', 'Integrations'].map((item) => (
+                {['SAST Scanner', 'AI Fixes', 'Cloud History', 'Private API'].map((item) => (
                   <li key={item}>
                     <button
                       onClick={() => onNavigate('scanner')}
-                      className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200"
+                      className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200 text-left"
                     >
                       {item}
                     </button>
@@ -814,11 +833,19 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
             <div>
               <h4 className="text-xs font-semibold text-white mb-6 uppercase tracking-wider">Resources</h4>
               <ul className="space-y-4">
-                {['Documentation', 'API Reference', 'Blog', 'Changelog'].map((item) => (
-                  <li key={item}>
-                    <span className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200 cursor-pointer">
-                      {item}
-                    </span>
+                {[
+                  { label: 'Documentation', view: 'docs' as const },
+                  { label: 'API Guide', view: 'api-guide' as const },
+                  { label: 'Security', view: 'security' as const },
+                  { label: 'Support', view: 'support' as const }
+                ].map((item) => (
+                  <li key={item.label}>
+                    <button
+                      onClick={() => onNavigate(item.view)}
+                      className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200 text-left"
+                    >
+                      {item.label}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -826,11 +853,19 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
             <div>
               <h4 className="text-xs font-semibold text-white mb-6 uppercase tracking-wider">Company</h4>
               <ul className="space-y-4">
-                {['About', 'Careers', 'Security', 'Contact'].map((item) => (
-                  <li key={item}>
-                    <span className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200 cursor-pointer">
-                      {item}
-                    </span>
+                {[
+                  { label: 'About', view: 'about' as const },
+                  { label: 'Privacy', view: 'privacy' as const },
+                  { label: 'Terms', view: 'terms' as const },
+                  { label: 'Contact', view: 'contact' as const }
+                ].map((item) => (
+                  <li key={item.label}>
+                    <button
+                      onClick={() => onNavigate(item.view)}
+                      className="text-sm text-muted-foreground hover:text-emerald transition-colors duration-200 text-left"
+                    >
+                      {item.label}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -839,7 +874,7 @@ export default function LandingPage({ onNavigate, isLoggedIn = false, user = nul
 
           <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              &copy; 2026 Verstack.lk. All rights reserved.
+              &copy; 2026 Scanmate. All rights reserved.
             </p>
             <div className="flex gap-8">
               <span className="text-sm text-muted-foreground hover:text-white transition-colors cursor-pointer">

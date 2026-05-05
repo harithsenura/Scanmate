@@ -20,9 +20,6 @@ class AIServiceError(Exception):
     pass
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Solution 1: SEMANTIC CACHE (In-Memory, Hash-Based)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 _semantic_cache: Dict[str, dict] = {}
 _cache_timestamps: Dict[str, float] = {}
 CACHE_TTL_SECONDS = 3600  # 1 hour
@@ -52,9 +49,6 @@ def _set_cached(key: str, value: dict):
     _cache_timestamps[key] = time.time()
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Solution 4: CODE PRE-PROCESSING & TOKEN TRIMMING
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 def trim_code_tokens(code: str) -> str:
     """
     Strip noise from code before sending to AI to reduce token count.
@@ -97,17 +91,15 @@ class AIService:
             except ImportError:
                 pass
     
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Solution 5: EXPONENTIAL BACKOFF WITH RETRY
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async def _call_groq(self, messages: list, temperature: float = 0.2, 
-                         json_mode: bool = True, max_retries: int = 3) -> Optional[str]:
+                async def _call_groq(self, messages: list, temperature: float = 0.2, 
+                         json_mode: bool = True, max_retries: int = 3, user_key: Optional[str] = None) -> Optional[str]:
         """Call Groq API with exponential backoff retry logic."""
-        if not getattr(self.settings, 'GROQ_API_KEY', None):
+        api_key = user_key or getattr(self.settings, 'GROQ_API_KEY', None)
+        if not api_key:
             return None
             
         headers = {
-            "Authorization": f"Bearer {self.settings.GROQ_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         payload = {
@@ -149,17 +141,15 @@ class AIService:
         
         return None
     
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # Solution 6: MULTI-PROVIDER FALLBACK (Groq → Gemini)
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    async def _call_gemini(self, system_instruction: str, prompt: str, 
-                           max_retries: int = 2) -> Optional[str]:
+                async def _call_gemini(self, system_instruction: str, prompt: str, 
+                           max_retries: int = 2, user_key: Optional[str] = None) -> Optional[str]:
         """Fallback to Gemini API with exponential backoff."""
-        if not getattr(self.settings, 'GEMINI_API_KEY', None):
+        api_key = user_key or getattr(self.settings, 'GEMINI_API_KEY', None)
+        if not api_key:
             return None
             
         model_name = getattr(self.settings, 'GEMINI_MODEL', "gemini-2.0-flash")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.settings.GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         payload = {
             "contents": [{"parts": [{"text": f"SYSTEM: {system_instruction}\n\nUSER: {prompt}"}]}],
             "generationConfig": {"temperature": 0.2, "topK": 1, "topP": 1, "maxOutputTokens": 8192}
@@ -191,7 +181,7 @@ class AIService:
         return None
     
     async def _call_ai(self, system_instruction: str, prompt: str, 
-                       json_mode: bool = True) -> Optional[str]:
+                       json_mode: bool = True, user_groq_key: Optional[str] = None, user_gemini_key: Optional[str] = None) -> Optional[str]:
         """
         Multi-provider AI call: Groq → Gemini fallback chain.
         Implements Solution 6 (Multi-Provider Fallback).
@@ -201,14 +191,14 @@ class AIService:
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": prompt}
         ]
-        result = await self._call_groq(messages, json_mode=json_mode)
+        result = await self._call_groq(messages, json_mode=json_mode, user_key=user_groq_key)
         if result:
             print("✅ AI Response via Groq")
             return result
         
         # Fallback to Gemini
         print("🔄 Groq unavailable, falling back to Gemini...")
-        result = await self._call_gemini(system_instruction, prompt)
+        result = await self._call_gemini(system_instruction, prompt, user_key=user_gemini_key)
         if result:
             print("✅ AI Response via Gemini (fallback)")
             return result
@@ -523,19 +513,19 @@ Provide your response as a JSON object with these fields:
         vuln_name: str,
         vuln_description: str,
         filename: str,
+        user_groq_key: Optional[str] = None,
+        user_gemini_key: Optional[str] = None,
     ) -> dict:
         """
         Second-pass AI validation with Semantic Caching + Token Trimming.
         Uses the ScanMate Penetration Testing Researcher persona.
         """
-        # Solution 1: Check Semantic Cache first
-        cache_key = _cache_key(code_snippet, f"{filename}:{vuln_name}", "validate")
+                cache_key = _cache_key(code_snippet, f"{filename}:{vuln_name}", "validate")
         cached = _get_cached(cache_key)
         if cached:
             return cached
 
-        # Solution 4: Token Trimming
-        trimmed_code = trim_code_tokens(code_snippet)[:3000]
+                trimmed_code = trim_code_tokens(code_snippet)[:3000]
 
         system_prompt = (
             "### ROLE\n"
@@ -574,7 +564,7 @@ Provide your response as a JSON object with these fields:
 
         try:
             # Solution 5+6: Call AI with backoff + multi-provider fallback
-            text = await self._call_ai(system_prompt, user_prompt, json_mode=True)
+            text = await self._call_ai(system_prompt, user_prompt, json_mode=True, user_groq_key=user_groq_key, user_gemini_key=user_gemini_key)
             
             if not text:
                 return {"is_true_positive": True, "confidence_score": 50, "status": "Review Required",
@@ -594,8 +584,7 @@ Provide your response as a JSON object with these fields:
                 "prevention": parsed.get("action_plan", {}).get("prevention", ""),
             }
             
-            # Solution 1: Cache the result
-            _set_cached(cache_key, result)
+                        _set_cached(cache_key, result)
             return result
 
         except Exception as e:
@@ -608,6 +597,8 @@ Provide your response as a JSON object with these fields:
         code: str,
         language: str,
         filename: str,
+        user_groq_key: Optional[str] = None,
+        user_gemini_key: Optional[str] = None,
     ) -> dict:
         """
         Perform a holistic semantic security audit with all scaling solutions:
@@ -617,14 +608,12 @@ Provide your response as a JSON object with these fields:
         - Solution 5: Exponential Backoff
         - Solution 6: Multi-Provider Fallback (Groq → Gemini)
         """
-        # Solution 1: Check Semantic Cache
-        cache_key = _cache_key(code, filename, "audit")
+                cache_key = _cache_key(code, filename, "audit")
         cached = _get_cached(cache_key)
         if cached:
             return cached
         
-        # Solution 4: Token Trimming — strip noise before sending to AI
-        trimmed_code = trim_code_tokens(code)
+                trimmed_code = trim_code_tokens(code)
         
         system_instruction = (
             "You are an Elite Senior Software Engineer and Cyber Security Auditor. "
@@ -654,7 +643,7 @@ Provide your response as a JSON object with these fields:
         
         try:
             # Solution 5+6: Call AI with exponential backoff + multi-provider fallback
-            text = await self._call_ai(system_instruction, prompt, json_mode=True)
+            text = await self._call_ai(system_instruction, prompt, json_mode=True, user_groq_key=user_groq_key, user_gemini_key=user_gemini_key)
             
             if not text:
                 return {"vulnerabilities": [], "deep_analysis": None}
@@ -703,8 +692,7 @@ Provide your response as a JSON object with these fields:
                 "deep_analysis": deep_analysis
             }
             
-            # Solution 1: Cache the result
-            _set_cached(cache_key, result)
+                        _set_cached(cache_key, result)
             return result
             
         except Exception as e:

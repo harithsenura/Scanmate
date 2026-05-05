@@ -1,6 +1,5 @@
 """
-Verstack.lk AI Code Scanner - FastAPI Application Entry Point
-Industrial-grade SAST platform with AST analysis and AI-powered fix generation.
+Scanmate AI Code Scanner - FastAPI Application Entry Point
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,8 +55,8 @@ def create_application() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"] if settings.DEBUG else [
-            "https://verstack.lk",
-            "https://app.verstack.lk",
+            "https://scanmate.ai",
+            "https://app.scanmate.ai",
             "http://localhost:3000",
             "http://localhost:5173",
         ],
@@ -69,7 +68,7 @@ def create_application() -> FastAPI:
     # Trusted host middleware
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"] if settings.DEBUG else ["verstack.lk", "*.verstack.lk"],
+        allowed_hosts=["*"] if settings.DEBUG else ["scanmate.ai", "*.scanmate.ai"],
     )
     
     # Include routers

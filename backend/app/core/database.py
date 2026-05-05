@@ -1,5 +1,5 @@
 """
-Verstack.lk - Supabase Database Client
+Scanmate - Supabase Database Client
 PostgreSQL connection via Supabase for auth, scans, and real-time updates.
 """
 from supabase import create_client, Client

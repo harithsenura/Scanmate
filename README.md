@@ -1,15 +1,15 @@
-# Verstack.lk AI Code Scanner
+# Scanmate AI Code Scanner
 
 ## Industrial-Grade SAST (Static Application Security Testing) Platform
 
-Verstack.lk is an AI-powered code security scanner designed for modern development teams. Built with a "Liquid Glass" aesthetic, it combines deep AST-based static analysis with AI-powered fix generation to help developers ship secure code faster.
+Scanmate is an AI-powered code security scanner designed for modern development teams. Built with a "Liquid Glass" aesthetic, it combines deep AST-based static analysis with AI-powered fix generation to help developers ship secure code faster.
 
 ---
 
 ## System Architecture
 
 ```
-Verstack.lk/
+Scanmate/
 ├── frontend/                    # Next.js 14+ Frontend (React + Vite)
 │   ├── src/
 │   │   ├── sections/            # Page sections (LandingPage, ScannerDashboard)
@@ -335,10 +335,6 @@ Supabase Realtime broadcasts scan progress updates:
 
 ## License
 
-Proprietary - Verstack.lk
+Proprietary - Scanmate
 
----
-
-## Support
-
-For support, contact support@verstack.lk or open an issue in the repository.
+For support, contact support@scanmate.ai or open an issue in the repository.

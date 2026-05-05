@@ -62,7 +62,7 @@ export default function Navigation({ onNavigate, transparent = false, isLoggedIn
         >
           <Shield className="w-6 h-6 text-emerald transition-transform duration-200 group-hover:scale-110" />
           <span className="text-lg font-semibold tracking-tight">
-            verstack<span className="text-emerald">.lk</span>
+            Scanmate<span className="text-emerald"></span>
           </span>
         </button>
 
@@ -122,7 +122,7 @@ export default function Navigation({ onNavigate, transparent = false, isLoggedIn
                     Dashboard
                   </button>
                   <button
-                    onClick={() => { setDropdownOpen(false); }}
+                    onClick={() => { onNavigate('settings'); setDropdownOpen(false); }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-colors"
                   >
                     <Settings className="w-4 h-4" />

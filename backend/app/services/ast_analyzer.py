@@ -1,7 +1,5 @@
 """
-Verstack.lk - AST-Based Static Analysis Engine
-Core SAST engine using Python's ast module and regex-based pattern matching
-to detect common security vulnerabilities.
+Scanmate - AST-Based Static Analysis Engine
 """
 import ast
 import hashlib

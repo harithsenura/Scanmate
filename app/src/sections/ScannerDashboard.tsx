@@ -219,6 +219,43 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMobileTab, setActiveMobileTab] = useState<'editor' | 'analysis'>('editor');
   const [dashboardView, setDashboardView] = useState<'editor' | 'results'>('editor');
+  const [showEngineModal, setShowEngineModal] = useState(false);
+  const [engineSelection, setEngineSelection] = useState<'default' | 'private'>('default');
+  const [historyCount, setHistoryCount] = useState(0);
+
+  // Check history count for Free Plan limits
+  useEffect(() => {
+    const fetchHistoryCount = async () => {
+      let count = 0;
+      // Try local storage first
+      const local = JSON.parse(localStorage.getItem('scanmate_history') || '[]');
+      count = local.length;
+      
+      // Try Supabase for cross-device sync accuracy
+      if (session?.user?.id) {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('preferences')
+            .eq('id', session.user.id)
+            .maybeSingle();
+          
+          if (data?.preferences?.scan_history) {
+            count = data.preferences.scan_history.length;
+          }
+        } catch (e) {
+          console.error("Failed to fetch history count from Supabase", e);
+        }
+      }
+      setHistoryCount(count);
+      
+      // Auto-switch to private if default is locked
+      if (count >= 1) {
+        setEngineSelection('private');
+      }
+    };
+    fetchHistoryCount();
+  }, [session?.user?.id]);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -447,7 +484,8 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
     return null;
   }, [session, selectedRepo]);
 
-  const runScan = useCallback(async () => {
+  const runScan = useCallback(async (usePrivate: boolean) => {
+    setShowEngineModal(false);
     setIsScanning(true);
     setScanProgress(0);
     setScanResult(null);
@@ -472,6 +510,18 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
       let filesScanned = 0;
       let vulnCounter = 0;
       let fullProjectCode = '';
+
+      // Read custom user API keys if set
+      const userKeysString = localStorage.getItem('user_api_keys');
+      let userGroqKey: string | undefined = undefined;
+      let userGeminiKey: string | undefined = undefined;
+      if (usePrivate && userKeysString) {
+        try {
+          const keys = JSON.parse(userKeysString);
+          userGroqKey = keys.groq;
+          userGeminiKey = keys.gemini;
+        } catch(e) {}
+      }
 
       // Step 2: Scan each file using AST (Fast, no Rate Limits)
       for (let i = 0; i < allFiles.length; i++) {
@@ -516,6 +566,8 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
               language,
               filename: file.path,
               use_ai: false, // Use AST for individual files to save limits
+              user_groq_key: userGroqKey,
+              user_gemini_key: userGeminiKey
             }),
           });
 
@@ -562,6 +614,8 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
             language: 'multi',
             filename: 'Full Project Context',
             use_ai: true,
+            user_groq_key: userGroqKey,
+            user_gemini_key: userGeminiKey
           }),
         });
 
@@ -636,16 +690,53 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
           high: allVulnerabilities.filter(v => v.severity === 'high').length,
           medium: allVulnerabilities.filter(v => v.severity === 'medium').length,
           low: allVulnerabilities.filter(v => v.severity === 'low').length,
-        }
+        },
+        deep_analysis: finalDeepAnalysis
       };
       
       try {
         const existingHistory = JSON.parse(localStorage.getItem('scanmate_history') || '[]');
         // Keep only the latest scan for a specific project
         const filteredHistory = existingHistory.filter((item: any) => item.name !== historyRecord.name);
-        localStorage.setItem('scanmate_history', JSON.stringify([historyRecord, ...filteredHistory]));
+        const newHistory = [historyRecord, ...filteredHistory];
+        
+        localStorage.setItem('scanmate_history', JSON.stringify(newHistory));
+        
+        // Save to Supabase for cross-device sync
+        if (session?.user?.id) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('preferences')
+            .eq('id', session.user.id)
+            .maybeSingle();
+            
+          const currentPrefs = userData?.preferences || {};
+          const cloudHistory = currentPrefs.scan_history || [];
+          
+          // Merge: Keep latest scan for each project name
+          const mergedHistory = [historyRecord, ...cloudHistory.filter((item: any) => item.name !== historyRecord.name)];
+          
+          // Update local storage to match cloud
+          localStorage.setItem('scanmate_history', JSON.stringify(mergedHistory));
+
+          const { error: upsertError } = await supabase
+            .from('users')
+            .upsert({ 
+              id: session.user.id,
+              email: session.user.email || '',
+              full_name: session.user.user_metadata?.full_name || '',
+              avatar_url: session.user.user_metadata?.avatar_url || '',
+              preferences: { 
+                ...currentPrefs, 
+                scan_history: mergedHistory 
+              },
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+            
+          if (upsertError) console.error('Supabase sync error:', upsertError);
+        }
       } catch (e) {
-        console.error('Failed to save scan history to local storage', e);
+        console.error('Failed to save scan history', e);
       }
 
       setDashboardView('results');
@@ -707,7 +798,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
           >
             <Shield className="w-6 h-6 lg:w-5 lg:h-5 text-emerald transition-transform duration-200 group-hover:scale-110" />
             <span className="text-base lg:text-sm font-semibold tracking-tight">
-              verstack<span className="text-emerald">.lk</span>
+              Scanmate<span className="text-emerald"></span>
             </span>
           </button>
           <button 
@@ -874,7 +965,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
                       </button>
                     )}
                     <button
-                      onClick={runScan}
+                      onClick={() => setShowEngineModal(true)}
                       disabled={isScanning || !selectedRepo}
                       className={`group relative flex items-center gap-2 text-[10px] lg:text-xs font-semibold px-4 lg:px-6 py-1.5 rounded-full transition-all duration-300 overflow-hidden ${
                         isScanning || !selectedRepo
@@ -978,20 +1069,6 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
                       </div>
                       <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                       <div>{new Date(scanResult?.timestamp || '').toLocaleString()}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="relative group">
-                    <div className={`absolute inset-0 blur-[60px] opacity-20 rounded-full transition-all duration-1000 group-hover:opacity-40 ${
-                      (scanResult?.securityScore || 0) >= 80 ? 'bg-emerald' : 'bg-ruby'
-                    }`} />
-                    <div className="relative flex flex-col items-center justify-center w-24 h-24 lg:w-32 lg:h-32 rounded-full border border-white/10 bg-black/40 backdrop-blur-3xl shadow-2xl">
-                      <span className={`text-3xl lg:text-4xl font-bold tracking-tighter ${
-                        (scanResult?.securityScore || 0) >= 80 ? 'text-emerald' : 'text-ruby'
-                      }`}>
-                        {scanResult?.securityScore}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground uppercase tracking-[0.3em] font-bold mt-1">Score</span>
                     </div>
                   </div>
                 </div>
@@ -1151,6 +1228,120 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
           )}
         </div>
       </main>
+      
+      {/* API Engine Selection Modal */}
+      {showEngineModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-[#121214] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in duration-200">
+            <button 
+              onClick={() => setShowEngineModal(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white"
+            >
+              <XCircle className="w-5 h-5" />
+            </button>
+            
+            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-emerald" />
+              Select Scan Engine
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Choose which AI backend to use for your deep code analysis.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              <label 
+                className={`flex items-start gap-3 p-4 rounded-xl border transition-colors ${
+                  historyCount >= 1 
+                    ? 'bg-ruby/5 border-ruby/20 opacity-80 cursor-not-allowed'
+                    : engineSelection === 'default' 
+                      ? 'bg-emerald/10 border-emerald/50 cursor-pointer' 
+                      : 'bg-white/5 border-white/10 hover:border-white/20 cursor-pointer'
+                }`}
+              >
+                <div className="pt-0.5">
+                  <input 
+                    type="radio" 
+                    name="engine" 
+                    checked={engineSelection === 'default'} 
+                    onChange={() => historyCount < 1 && setEngineSelection('default')}
+                    disabled={historyCount >= 1}
+                    className="accent-emerald"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm text-white">Default ScanMate API</h4>
+                    {historyCount >= 1 && (
+                      <span className="text-[9px] bg-ruby/20 text-ruby px-1.5 py-0.5 rounded font-bold uppercase">Locked (Free Plan)</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {historyCount >= 1 
+                      ? "You've used your 1-project limit for the Default API. Upgrade or use a Private API for more." 
+                      : "Free global API. Limit: 1 Project per account."}
+                  </p>
+                </div>
+              </label>
+
+              <label 
+                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
+                  engineSelection === 'private' 
+                    ? 'bg-emerald/10 border-emerald/50' 
+                    : 'bg-white/5 border-white/10 hover:border-white/20'
+                }`}
+              >
+                <div className="pt-0.5">
+                  <input 
+                    type="radio" 
+                    name="engine" 
+                    checked={engineSelection === 'private'} 
+                    onChange={() => setEngineSelection('private')}
+                    className="accent-emerald"
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                      Private API <Lock className="w-3 h-3 text-emerald" />
+                    </h4>
+                    {localStorage.getItem('user_api_keys') ? (
+                      <span className="text-[10px] bg-emerald/20 text-emerald px-2 py-0.5 rounded uppercase font-bold">Ready</span>
+                    ) : (
+                      <span className="text-[10px] bg-ruby/20 text-ruby px-2 py-0.5 rounded uppercase font-bold">Missing</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Use your own Groq/Gemini API keys for guaranteed speed and zero rate limits.</p>
+                  
+                  {!localStorage.getItem('user_api_keys') && engineSelection === 'private' && (
+                    <button 
+                      onClick={() => onNavigate('settings')}
+                      className="mt-3 text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition-colors"
+                    >
+                      Configure Keys in Settings &rarr;
+                    </button>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setShowEngineModal(false)}
+                className="px-4 py-2 text-sm font-medium text-white/70 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => runScan(engineSelection === 'private')}
+                disabled={engineSelection === 'private' && !localStorage.getItem('user_api_keys')}
+                className="px-5 py-2 text-sm font-bold bg-emerald text-obsidian rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Start Scan &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     );
 }

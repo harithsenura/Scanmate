@@ -34,13 +34,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
       <div className="relative z-10 w-full max-w-md">
-        <button 
-          onClick={() => onNavigate('landing')}
-          className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors mb-8 group"
-        >
-          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          Back to Home
-        </button>
+
 
         <div className="glass-card p-10 rounded-[32px] border border-white/10 shadow-2xl text-center bg-obsidian/40 backdrop-blur-2xl">
           <div className="w-16 h-16 bg-emerald/10 border border-emerald/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -59,7 +53,7 @@ export default function LoginPage({ onNavigate }: LoginPageProps) {
           </button>
 
           <p className="text-xs text-muted-foreground mt-8 px-4">
-            By continuing, you agree to Verstack's Terms of Service and Privacy Policy.
+            By continuing, you agree to Scanmate's Terms of Service and Privacy Policy.
           </p>
         </div>
       </div>

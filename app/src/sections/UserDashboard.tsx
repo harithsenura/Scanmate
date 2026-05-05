@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
   Shield, Activity, FileCode2, Download, ChevronRight, CheckCircle2, 
-  AlertTriangle, XCircle, FileText, BarChart3, Clock, Lock
+  AlertTriangle, XCircle, FileText, BarChart3, Clock, Lock, Github
 } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { AppView } from '../App';
@@ -37,27 +37,49 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
   const user = session.user;
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Developer';
 
-  useEffect(() => {
-    const fetchHistory = () => {
-      try {
-        const history = JSON.parse(localStorage.getItem('scanmate_history') || '[]');
-        setRepos(history);
-      } catch (err) {
-        console.error('Failed to load scan history:', err);
-      } finally {
-        setLoading(false);
+  const fetchHistory = async () => {
+    setLoading(true);
+    try {
+      let historyData: GithubRepo[] = [];
+      
+      // Try to fetch from Supabase for cross-device sync
+      if (user?.id) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('preferences')
+          .eq('id', user.id)
+          .maybeSingle();
+          
+        if (!error && data?.preferences?.scan_history) {
+          historyData = data.preferences.scan_history;
+          // Sync it back to local storage just in case
+          localStorage.setItem('scanmate_history', JSON.stringify(historyData));
+        }
       }
-    };
+      
+      // Fallback to local storage if Supabase failed or returned nothing
+      if (!historyData || historyData.length === 0) {
+        historyData = JSON.parse(localStorage.getItem('scanmate_history') || '[]');
+      }
+      
+      setRepos(historyData);
+    } catch (err) {
+      console.error('Failed to load scan history:', err);
+      // Absolute fallback
+      setRepos(JSON.parse(localStorage.getItem('scanmate_history') || '[]'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchHistory();
-  }, []);
+  }, [user?.id]);
 
-  // Usage stats (Calculated from actual scanned history)
   const stats = {
     scansThisMonth: repos.length,
     threatsPrevented: repos.reduce((acc, r) => acc + (r.vulns?.critical || 0) + (r.vulns?.high || 0), 0),
-    avgScore: repos.length > 0 ? Math.round(repos.reduce((acc, r) => acc + (r.score || 0), 0) / repos.length) : 0,
-    plan: 'Pro'
+    plan: 'Free'
   };
 
   const getScoreColor = (score: number) => {
@@ -128,7 +150,7 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-32 h-32 bg-emerald/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
             <Activity className="w-8 h-8 text-emerald mb-4 relative z-10" />
@@ -143,13 +165,6 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
             <p className="text-3xl font-bold relative z-10">{stats.threatsPrevented}</p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
-            <BarChart3 className="w-8 h-8 text-yellow-400 mb-4 relative z-10" />
-            <p className="text-muted-foreground text-sm font-medium mb-1 relative z-10">Avg Security Score</p>
-            <p className="text-3xl font-bold relative z-10">{stats.avgScore}/100</p>
-          </div>
-
           <div className="bg-gradient-to-br from-emerald/20 to-emerald/5 border border-emerald/20 rounded-2xl p-6 backdrop-blur-sm relative overflow-hidden flex flex-col justify-center items-center text-center">
             <div className="w-12 h-12 rounded-full bg-emerald/20 flex items-center justify-center mb-3">
               <Shield className="w-6 h-6 text-emerald" />
@@ -160,85 +175,115 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
         </div>
 
         {/* Projects List */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
-          <div className="px-6 py-5 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <FileCode2 className="w-5 h-5 text-emerald" />
-              Scanned Projects
-            </h2>
+        <div className="bg-[#121214] border border-white/10 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl mb-12">
+          <div className="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-white/[0.02]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald/10 flex items-center justify-center">
+                <FileCode2 className="w-6 h-6 text-emerald" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Scanned Projects</h2>
+                <p className="text-xs text-muted-foreground">Securely synced across all your devices</p>
+              </div>
+            </div>
+            <button 
+              onClick={fetchHistory}
+              className={`p-2 hover:bg-white/5 rounded-full transition-colors text-muted-foreground hover:text-emerald ${loading ? 'animate-spin text-emerald' : ''}`}
+              title="Refresh and Sync"
+              disabled={loading}
+            >
+              <Activity className="w-5 h-5" />
+            </button>
           </div>
           
-          <div className="divide-y divide-white/10">
-            {loading ? (
-              <div className="p-12 flex justify-center items-center text-emerald">
-                <div className="w-8 h-8 border-4 border-emerald border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : repos.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <p>No scanned repositories found. Go to the scanner to start.</p>
-              </div>
-            ) : (
-              repos.map((project) => (
-                <div key={project.id} className="p-6 hover:bg-white/[0.02] transition-colors flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                  
-                  {/* Project Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold">{project.name}</h3>
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-muted-foreground border border-white/10">
-                        {project.language}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-4 h-4" />
-                        {new Date(project.updated_at).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        {project.status === 'passed' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-ruby" />
-                        )}
-                        {project.status === 'passed' ? 'Passed' : 'Failed'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Vulnerability Badges */}
-                  <div className="flex gap-2">
-                    <div className="flex flex-col items-center justify-center bg-ruby/10 border border-ruby/20 rounded-lg px-3 py-1.5 min-w-[60px]">
-                      <span className="text-ruby text-lg font-bold leading-none">{project.vulns?.critical || 0}</span>
-                      <span className="text-[10px] text-ruby/80 font-semibold uppercase tracking-wider mt-1">Crit</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center bg-orange-500/10 border border-orange-500/20 rounded-lg px-3 py-1.5 min-w-[60px]">
-                      <span className="text-orange-500 text-lg font-bold leading-none">{project.vulns?.high || 0}</span>
-                      <span className="text-[10px] text-orange-500/80 font-semibold uppercase tracking-wider mt-1">High</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center bg-yellow-400/10 border border-yellow-400/20 rounded-lg px-3 py-1.5 min-w-[60px]">
-                      <span className="text-yellow-400 text-lg font-bold leading-none">{project.vulns?.medium || 0}</span>
-                      <span className="text-[10px] text-yellow-400/80 font-semibold uppercase tracking-wider mt-1">Med</span>
-                    </div>
-                  </div>
-
-                  {/* Score & Actions */}
-                  <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
-                    <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-bold text-xl ${getScoreColor(project.score || 0)}`}>
-                      {project.score}
-                    </div>
-                    
-                    <button 
-                      onClick={() => handleGenerateReport(project)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-sm font-medium"
-                    >
-                      <FileText className="w-4 h-4 text-emerald" />
-                      Report
-                    </button>
-                  </div>
-
+          <div className="overflow-x-auto">
+            <div className="min-w-full divide-y divide-white/5">
+              {loading ? (
+                <div className="p-20 flex flex-col justify-center items-center gap-4 text-emerald">
+                  <div className="w-10 h-10 border-4 border-emerald border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm font-mono animate-pulse">Syncing Cloud History...</p>
                 </div>
-              ))
-            )}
+              ) : repos.length === 0 ? (
+                <div className="p-20 text-center">
+                  <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Shield className="w-8 h-8 text-muted-foreground/20" />
+                  </div>
+                  <h3 className="text-lg font-bold mb-2">No Projects Found</h3>
+                  <p className="text-muted-foreground mb-8 max-w-xs mx-auto">Start your first security audit to see your projects here.</p>
+                  <button 
+                    onClick={() => onNavigate('repos')}
+                    className="bg-emerald/10 text-emerald hover:bg-emerald/20 px-6 py-2 rounded-xl font-bold transition-all border border-emerald/20"
+                  >
+                    Go to Scanner
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  {repos.map((project) => (
+                    <div key={project.id} className="p-6 hover:bg-white/[0.03] transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-b border-white/5 last:border-0 group">
+                      
+                      {/* Project Info */}
+                      <div className="flex items-center gap-4 flex-1 w-full">
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-emerald/30 group-hover:bg-emerald/5 transition-all">
+                          <Github className="w-6 h-6 text-muted-foreground group-hover:text-emerald" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-lg font-bold truncate group-hover:text-emerald transition-colors">{project.name}</h3>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-muted-foreground border border-white/10 uppercase tracking-wider">
+                              {project.language}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                              {new Date(project.updated_at).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium">
+                              {project.status === 'passed' ? (
+                                <div className="w-2 h-2 rounded-full bg-emerald shadow-[0_0_8px_#10b981]" />
+                              ) : (
+                                <div className="w-2 h-2 rounded-full bg-ruby shadow-[0_0_8px_#ef4444]" />
+                              )}
+                              {project.status === 'passed' ? 'System Secure' : 'Threats Detected'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vulnerability Distribution & Action */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                        <div className="flex items-center gap-2 bg-black/20 p-2 rounded-2xl border border-white/5 w-full sm:w-auto justify-between sm:justify-start">
+                          <div className="flex flex-col items-center justify-center px-4 py-1.5 min-w-[60px]">
+                            <span className="text-ruby text-lg font-black leading-none">{project.vulns?.critical || 0}</span>
+                            <span className="text-[9px] text-ruby/60 font-bold uppercase tracking-tighter mt-1">Critical</span>
+                          </div>
+                          <div className="w-px h-8 bg-white/5" />
+                          <div className="flex flex-col items-center justify-center px-4 py-1.5 min-w-[60px]">
+                            <span className="text-orange-500 text-lg font-black leading-none">{project.vulns?.high || 0}</span>
+                            <span className="text-[9px] text-orange-500/60 font-bold uppercase tracking-tighter mt-1">High</span>
+                          </div>
+                          <div className="w-px h-8 bg-white/5" />
+                          <div className="flex flex-col items-center justify-center px-4 py-1.5 min-w-[60px]">
+                            <span className="text-yellow-400 text-lg font-black leading-none">{project.vulns?.medium || 0}</span>
+                            <span className="text-[9px] text-yellow-400/60 font-bold uppercase tracking-tighter mt-1">Medium</span>
+                          </div>
+                        </div>
+
+                        {/* Action */}
+                        <button 
+                          onClick={() => handleGenerateReport(project)}
+                          className="flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white/5 hover:bg-emerald hover:text-obsidian border border-white/10 transition-all font-bold text-sm w-full sm:w-auto"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Detailed Report</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
@@ -321,18 +366,11 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
                 <div className="mb-10">
                   <h2 className="text-2xl font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4">Executive Summary</h2>
                   <div className="flex gap-8 items-center">
-                    <div className="flex-shrink-0 text-center">
-                      <div className="text-6xl font-black mb-1" style={{ color: (selectedProject.score || 0) >= 90 ? '#10b981' : (selectedProject.score || 0) >= 70 ? '#facc15' : '#ef4444' }}>
-                        {selectedProject.score}
-                      </div>
-                      <p className="text-sm font-bold text-gray-500 uppercase tracking-wider">Security Score</p>
-                    </div>
                     <div>
                       <p className="text-gray-700 leading-relaxed text-justify">
                         This automated security assessment was performed using the ScanMate AI-powered static analysis engine. 
                         The target codebase (<span className="font-semibold">{selectedProject.name}</span>) was evaluated against industry standard vulnerability catalogs including OWASP Top 10 and CWE/SANS Top 25. 
-                        The application achieved a security score of <span className="font-semibold">{selectedProject.score}/100</span>, indicating a 
-                        <span className="font-semibold"> {selectedProject.status === 'passed' ? 'satisfactory' : 'critical'} </span> security posture.
+                        A total of <span className="font-semibold">{(selectedProject.vulns?.critical || 0) + (selectedProject.vulns?.high || 0) + (selectedProject.vulns?.medium || 0) + (selectedProject.vulns?.low || 0)}</span> vulnerabilities were discovered during this scan.
                       </p>
                     </div>
                   </div>
@@ -364,21 +402,38 @@ export default function UserDashboard({ onNavigate, session }: UserDashboardProp
                 {/* AI Deep Analysis Placeholder */}
                 <div className="mb-10 page-break-inside-avoid">
                   <h2 className="text-2xl font-bold text-gray-900 border-b border-gray-300 pb-2 mb-4">Senior Auditor Notes</h2>
-                  <div className="bg-gray-50 border-l-4 border-emerald p-6 rounded-r-lg">
-                    <p className="text-gray-700 italic text-sm leading-relaxed mb-4">
-                      "The architectural design follows standard patterns, but care must be taken regarding input validation and secret management. 
-                      No plaintext API keys were found in the root configuration, which is a strong positive indicator. 
-                      However, continuous monitoring is advised for dependency updates."
-                    </p>
-                    <p className="text-gray-500 text-xs font-bold text-right">— ScanMate AI Lead Engineer (Auto-generated)</p>
-                  </div>
+                  
+                  {selectedProject.deep_analysis ? (
+                    <div className="space-y-6">
+                      <div className="bg-gray-50 border-l-4 border-emerald p-5 rounded-r-lg">
+                        <h4 className="font-bold text-gray-900 mb-2">Security Audit</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.security_audit}</p>
+                      </div>
+                      <div className="bg-gray-50 border-l-4 border-blue-400 p-5 rounded-r-lg">
+                        <h4 className="font-bold text-gray-900 mb-2">Validation & Architecture</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.validation_audit}</p>
+                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap mt-3 border-t border-gray-200 pt-3">{selectedProject.deep_analysis.engineering_audit}</p>
+                      </div>
+                      <div className="bg-gray-50 border-l-4 border-ruby p-5 rounded-r-lg">
+                        <h4 className="font-bold text-gray-900 mb-2">Credentials & Secrets Management</h4>
+                        <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{selectedProject.deep_analysis.hardcoded_credentials}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 border-l-4 border-gray-400 p-6 rounded-r-lg">
+                      <p className="text-gray-500 italic text-sm text-center">
+                        Deep analysis report was not generated or not available for this project.
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-gray-500 text-xs font-bold text-right mt-4">— ScanMate Advanced Engine</p>
                 </div>
                 
                 {/* Footer */}
                 <div className="mt-16 pt-6 border-t border-gray-200 text-center">
                   <p className="text-xs text-gray-400 font-medium">
                     This document contains confidential information intended solely for the authorized developers of {selectedProject.name}.
-                    <br />Generated securely by verstack.lk AI Infrastructure.
+                    <br />Generated securely by Scanmate AI Infrastructure.
                   </p>
                 </div>
               </div>

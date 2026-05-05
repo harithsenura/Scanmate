@@ -1,5 +1,5 @@
 -- ============================================================================
--- Verstack.lk AI Code Scanner - Supabase Database Schema
+-- Scanmate AI Code Scanner - Supabase Database Schema
 -- PostgreSQL schema for users, scans, vulnerabilities, and audit logs.
 -- Supports Supabase Auth, Row Level Security (RLS), and Realtime.
 -- ============================================================================
@@ -336,4 +336,4 @@ ORDER BY s.created_at DESC;
 
 -- Insert default admin user (update UUID after creating via Supabase Auth)
 -- INSERT INTO public.users (id, email, full_name, role, scan_quota)
--- VALUES ('00000000-0000-0000-0000-000000000000', 'admin@verstack.lk', 'System Admin', 'admin', 999999);
+-- VALUES ('00000000-0000-0000-0000-000000000000', 'admin@scanmate.ai', 'System Admin', 'admin', 999999);

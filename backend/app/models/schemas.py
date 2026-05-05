@@ -1,5 +1,5 @@
 """
-Verstack.lk - Pydantic Schemas
+Scanmate - Pydantic Schemas
 Request/response models for the SAST API.
 """
 from pydantic import BaseModel, Field
@@ -38,6 +38,8 @@ class ScanRequest(BaseModel):
     filename: Optional[str] = Field(default="untitled", description="Name of the file being scanned")
     use_ai: bool = Field(default=True, description="Whether to use AI for enhanced analysis")
     ai_model: Optional[str] = Field(default=None, description="AI model to use (gpt-4, llama-3, etc.)")
+    user_groq_key: Optional[str] = Field(default=None, description="User's custom Groq API key")
+    user_gemini_key: Optional[str] = Field(default=None, description="User's custom Gemini API key")
 
 
 class Vulnerability(BaseModel):

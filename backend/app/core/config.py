@@ -1,5 +1,5 @@
 """
-Verstack.lk - Application Configuration
+Scanmate.ai - Application Configuration
 Industrial-grade SAST platform configuration management.
 """
 from pydantic_settings import BaseSettings
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Application
-    APP_NAME: str = "Verstack.lk AI Code Scanner"
+    APP_NAME: str = "Scanmate.ai AI Code Scanner"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     

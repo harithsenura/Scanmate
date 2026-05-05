@@ -1,5 +1,5 @@
 """
-Verstack.lk - Scan API Router
+Scanmate - Scan API Router
 FastAPI endpoints for code scanning, analysis, and AI-powered fix generation.
 """
 import time
@@ -55,7 +55,9 @@ async def scan_code(request: ScanRequest):
                 audit_result = await ai_service.audit_code(
                     request.code, 
                     request.language, 
-                    request.filename or "untitled"
+                    request.filename or "untitled",
+                    user_groq_key=request.user_groq_key,
+                    user_gemini_key=request.user_gemini_key
                 )
                 
                 vulnerabilities = audit_result.get("vulnerabilities", [])
@@ -106,6 +108,8 @@ async def scan_code(request: ScanRequest):
                             vuln_name=v.title,
                             vuln_description=v.description,
                             filename=request.filename or "untitled",
+                            user_groq_key=request.user_groq_key,
+                            user_gemini_key=request.user_gemini_key
                         )
                         
                         if validation.get("is_true_positive", True):

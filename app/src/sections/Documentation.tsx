@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, ShieldAlert, FileCode2, Terminal, Activity, ArrowRight, CheckCircle2, ChevronRight, LayoutDashboard, SearchCode, Cpu } from 'lucide-react';
+import { Book, ShieldAlert, FileCode, Terminal, Activity, ArrowRight, CheckCircle2, ChevronRight, LayoutDashboard, ScanLine, Cpu, Zap, Check, Shield } from 'lucide-react';
 import type { AppView } from '../App';
 import Navigation from '../components/Navigation';
 
@@ -14,7 +14,7 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
 
   const categories = [
     { id: 'getting-started', label: 'Getting Started', icon: Book },
-    { id: 'security-scanning', label: 'Security Scanning', icon: SearchCode },
+    { id: 'security-scanning', label: 'Security Scanning', icon: ScanLine },
     { id: 'ai-fixes', label: 'Automated AI Fixes', icon: Cpu },
     { id: 'reports', label: 'Vulnerability Reports', icon: Activity },
     { id: 'integrations', label: 'IDE & CI/CD Integrations', icon: Terminal },
@@ -83,9 +83,9 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
               
               {activeCategory === 'getting-started' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">Getting Started with Verstack</h1>
+                  <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">Getting Started with Scanmate</h1>
                   <p className="text-lg text-muted-foreground mb-10 leading-relaxed font-light">
-                    Welcome to Verstack. This guide will walk you through the foundational steps to secure your codebase, from initial setup to running your very first AI-powered security scan.
+                    Welcome to Scanmate. This guide will walk you through the foundational steps to secure your codebase, from initial setup to running your very first AI-powered security scan.
                   </p>
 
                   <h3 className="text-2xl font-medium text-white mb-4">Step 1: Create your Workspace</h3>
@@ -102,14 +102,45 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                       </li>
                       <li className="flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-emerald shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-300">Select the repository you wish to scan. Verstack requests read-only access to prevent unauthorized code modifications.</span>
+                        <span className="text-sm text-gray-300">Select the repository you wish to scan. Scanmate requests read-only access to prevent unauthorized code modifications.</span>
                       </li>
                     </ul>
                   </div>
 
-                  <h3 className="text-2xl font-medium text-white mb-4">Step 2: Understanding the Dashboard</h3>
+                  <h3 className="text-2xl font-medium text-white mb-4">Step 2: API Usage & Limits</h3>
+                  <div className="glass-card p-6 rounded-2xl mb-8 border-emerald/10 bg-emerald/[0.02]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Zap className="w-5 h-5 text-emerald" />
+                      <h4 className="text-white font-medium">Free Plan Scans</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                      Every new account starts on the <strong>Free Plan</strong>. To ensure high availability for all users, the following limits apply:
+                    </p>
+                    <ul className="space-y-4">
+                      <li className="flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-lg bg-emerald/10 border border-emerald/20 flex items-center justify-center shrink-0">
+                          <Check className="w-4 h-4 text-emerald" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-white font-medium">Default ScanMate API</p>
+                          <p className="text-xs text-muted-foreground">Limited to <strong>1 project scan</strong> per account. Perfect for your first security audit.</p>
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-4">
+                        <div className="w-8 h-8 rounded-lg bg-emerald/10 border border-emerald/20 flex items-center justify-center shrink-0">
+                          <Shield className="w-4 h-4 text-emerald" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-white font-medium">Private API Keys</p>
+                          <p className="text-xs text-muted-foreground">Add your own <strong>Groq</strong> or <strong>Gemini</strong> keys in Settings to unlock unlimited scanning and faster analysis speeds.</p>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <h3 className="text-2xl font-medium text-white mb-4">Step 3: Understanding the Dashboard</h3>
                   <p className="text-muted-foreground mb-6">
-                    Once imported, you will be redirected to the Verstack Scanner Dashboard. Here you will find an overview of your project's health, recent scan history, and active alerts.
+                    Once imported, you will be redirected to the Scanmate Scanner Dashboard. Here you will find an overview of your project's health, recent scan history, and active alerts.
                   </p>
                   
                   <button 
@@ -125,14 +156,14 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">Running Security Scans</h1>
                   <p className="text-lg text-muted-foreground mb-10 leading-relaxed font-light">
-                    Verstack utilizes an advanced AI engine to perform deep static analysis (SAST) and logic flaw detection across your entire codebase in real-time.
+                    Scanmate utilizes an advanced AI engine to perform deep static analysis (SAST) and logic flaw detection across your entire codebase in real-time.
                   </p>
 
                   <h3 className="text-2xl font-medium text-white mb-4">How to Initiate a Manual Scan</h3>
                   <div className="bg-black/30 border border-white/5 rounded-2xl p-8 mb-8 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-emerald"></div>
                     <ol className="list-decimal list-inside space-y-4 text-gray-300">
-                      <li>Open your desired project in the <strong>Verstack Dashboard</strong>.</li>
+                      <li>Open your desired project in the <strong>Scanmate Dashboard</strong>.</li>
                       <li>Navigate to the <strong>"Scan Center"</strong> tab on the left menu.</li>
                       <li>Select your scan depth: 
                         <ul className="list-disc list-inside ml-6 mt-2 space-y-1 text-sm text-muted-foreground">
@@ -146,7 +177,7 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
 
                   <h3 className="text-2xl font-medium text-white mb-4">Reviewing Vulnerabilities</h3>
                   <p className="text-muted-foreground mb-6">
-                    When the scan completes, Verstack categorizes issues by severity (Critical, High, Medium, Low). Click on any vulnerability card to expand the details, which includes the exact file path, vulnerable code snippet, and the potential exploit vector.
+                    When the scan completes, Scanmate categorizes issues by severity (Critical, High, Medium, Low). Click on any vulnerability card to expand the details, which includes the exact file path, vulnerable code snippet, and the potential exploit vector.
                   </p>
                 </div>
               )}
@@ -155,7 +186,7 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">Automated AI Fixes</h1>
                   <p className="text-lg text-muted-foreground mb-10 leading-relaxed font-light">
-                    Detecting vulnerabilities is only half the battle. Verstack's primary feature is generating secure, context-aware code replacements instantly.
+                    Detecting vulnerabilities is only half the battle. Scanmate's primary feature is generating secure, context-aware code replacements instantly.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
@@ -165,9 +196,9 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                       <p className="text-sm text-muted-foreground">Select a vulnerability from your scan results. Review the AI-generated explanation of why the current code is insecure.</p>
                     </div>
                     <div className="glass-card p-6 rounded-2xl border-emerald/20">
-                      <FileCode2 className="w-8 h-8 text-emerald mb-4" />
+                      <FileCode className="w-8 h-8 text-emerald mb-4" />
                       <h4 className="text-white font-medium mb-2">2. Generate Patch</h4>
-                      <p className="text-sm text-muted-foreground">Click the "Generate Secure Code" button. Verstack will rewrite the function using industry best practices and secure APIs.</p>
+                      <p className="text-sm text-muted-foreground">Click the "Generate Secure Code" button. Scanmate will rewrite the function using industry best practices and secure APIs.</p>
                     </div>
                   </div>
 
@@ -184,7 +215,7 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                     </pre>
                   </div>
                   <p className="text-muted-foreground">
-                    You can either manually copy the suggested code, or click <strong>"Create Pull Request"</strong> to have Verstack automatically push the secure patch directly to your repository branch.
+                    You can either manually copy the suggested code, or click <strong>"Create Pull Request"</strong> to have Scanmate automatically push the secure patch directly to your repository branch.
                   </p>
                 </div>
               )}
@@ -227,7 +258,7 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight mb-4">Integrations</h1>
                   <p className="text-lg text-muted-foreground mb-10 leading-relaxed font-light">
-                    Bring Verstack's AI security directly into your existing development workflow.
+                    Bring Scanmate's AI security directly into your existing development workflow.
                   </p>
 
                   <h3 className="text-2xl font-medium text-white mb-6">Supported Integrations</h3>
@@ -252,9 +283,9 @@ export default function Documentation({ onNavigate }: DocumentationProps) {
                         <h4 className="text-lg font-medium text-white mb-2">GitHub Actions CI/CD</h4>
                         <p className="text-sm text-muted-foreground mb-3">Automatically scan every Pull Request. Block merges if critical vulnerabilities are detected, and auto-comment AI fixes.</p>
                         <pre className="bg-black/50 p-3 rounded-lg text-xs font-mono text-gray-400 mt-2 overflow-x-auto border border-white/5">
-<code className="text-emerald">uses: verstack/security-action@v2</code>{'\n'}
+<code className="text-emerald">uses: scanmate/security-action@v2</code>{'\n'}
 <code>with:</code>{'\n'}
-<code>{"  api-key: ${{ secrets.VERSTACK_API_KEY }}"}</code>
+<code>{"  api-key: ${{ secrets.SCANMATE_API_KEY }}"}</code>
                         </pre>
                       </div>
                     </div>
