@@ -91,7 +91,7 @@ class AIService:
             except ImportError:
                 pass
     
-                async def _call_groq(self, messages: list, temperature: float = 0.2, 
+    async def _call_groq(self, messages: list, temperature: float = 0.2, 
                          json_mode: bool = True, max_retries: int = 3, user_key: Optional[str] = None) -> Optional[str]:
         """Call Groq API with exponential backoff retry logic."""
         api_key = user_key or getattr(self.settings, 'GROQ_API_KEY', None)
@@ -141,7 +141,7 @@ class AIService:
         
         return None
     
-                async def _call_gemini(self, system_instruction: str, prompt: str, 
+    async def _call_gemini(self, system_instruction: str, prompt: str, 
                            max_retries: int = 2, user_key: Optional[str] = None) -> Optional[str]:
         """Fallback to Gemini API with exponential backoff."""
         api_key = user_key or getattr(self.settings, 'GEMINI_API_KEY', None)
@@ -520,12 +520,12 @@ Provide your response as a JSON object with these fields:
         Second-pass AI validation with Semantic Caching + Token Trimming.
         Uses the ScanMate Penetration Testing Researcher persona.
         """
-                cache_key = _cache_key(code_snippet, f"{filename}:{vuln_name}", "validate")
+        cache_key = _cache_key(code_snippet, f"{filename}:{vuln_name}", "validate")
         cached = _get_cached(cache_key)
         if cached:
             return cached
 
-                trimmed_code = trim_code_tokens(code_snippet)[:3000]
+        trimmed_code = trim_code_tokens(code_snippet)[:3000]
 
         system_prompt = (
             "### ROLE\n"
@@ -584,7 +584,7 @@ Provide your response as a JSON object with these fields:
                 "prevention": parsed.get("action_plan", {}).get("prevention", ""),
             }
             
-                        _set_cached(cache_key, result)
+            _set_cached(cache_key, result)
             return result
 
         except Exception as e:
@@ -608,12 +608,12 @@ Provide your response as a JSON object with these fields:
         - Solution 5: Exponential Backoff
         - Solution 6: Multi-Provider Fallback (Groq → Gemini)
         """
-                cache_key = _cache_key(code, filename, "audit")
+        cache_key = _cache_key(code, filename, "audit")
         cached = _get_cached(cache_key)
         if cached:
             return cached
         
-                trimmed_code = trim_code_tokens(code)
+        trimmed_code = trim_code_tokens(code)
         
         system_instruction = (
             "You are an Elite Senior Software Engineer and Cyber Security Auditor. "
@@ -692,7 +692,7 @@ Provide your response as a JSON object with these fields:
                 "deep_analysis": deep_analysis
             }
             
-                        _set_cached(cache_key, result)
+            _set_cached(cache_key, result)
             return result
             
         except Exception as e:
