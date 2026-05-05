@@ -96,6 +96,8 @@ const sidebarItems = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
+const BACKEND_URL = 'https://scanmate-jqy1.onrender.com';
+
 const sampleVulnerabilities: Vulnerability[] = [
   {
     id: 'vuln-1',
@@ -557,8 +559,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
 
         // Scan via backend (AST Mode)
         try {
-          const apiHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-          const response = await fetch(`http://${apiHost}:8000/api/v1/scan`, {
+          const response = await fetch(`${BACKEND_URL}/api/v1/scan`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -605,8 +606,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
 
       // Step 3: ONE Final AI Call for the Deep Narrative Report
       try {
-        const apiHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-        const aiResponse = await fetch(`http://${apiHost}:8000/api/v1/scan`, {
+        const aiResponse = await fetch(`${BACKEND_URL}/api/v1/scan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

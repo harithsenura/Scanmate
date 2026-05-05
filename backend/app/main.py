@@ -54,14 +54,9 @@ def create_application() -> FastAPI:
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"] if settings.DEBUG else [
-            "https://scanmate.ai",
-            "https://app.scanmate.ai",
-            "http://localhost:3000",
-            "http://localhost:5173",
-        ],
+        allow_origins=["*"], # Allow all origins for seamless integration
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_methods=["*"],
         allow_headers=["*"],
     )
     
