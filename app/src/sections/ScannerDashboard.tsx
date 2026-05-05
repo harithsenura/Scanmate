@@ -139,6 +139,7 @@ export default function ScannerDashboard({ onNavigate, session, selectedRepo }: 
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [selectedVuln, setSelectedVuln] = useState<Vulnerability | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [scanStatus, setScanStatus] = useState<string>('');
   const [fileTree, setFileTree] = useState<FileNode[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
