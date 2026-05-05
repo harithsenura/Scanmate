@@ -7,7 +7,7 @@ Scanmate is a modern, industrial-grade **Static Application Security Testing (SA
 ## ✨ Core Features
 
 *   **Deep AST Analysis**: Goes beyond regex to understand your code's structure and logic.
-*   **AI-Powered Fixes**: Automatically generates secure patches for detected vulnerabilities using GPT-4 & Llama 3.
+*   **AI-Powered Fixes**: Automatically generates secure patches for detected vulnerabilities using Groq & Google Gemini.
 *   **Real-time Intelligence**: Live progress updates and instant security scoring.
 *   **Modern UX**: A premium "Liquid Glass" dashboard designed for high-performance development teams.
 
